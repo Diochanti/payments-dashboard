@@ -1011,7 +1011,7 @@ def show_action_required_details(priority_df):
 
     amount_col = find_amount_column(priority_df)
 
-    with st.expander("View invoices behind Executive Action Required", expanded=False):
+    with st.expander("Review Payment Action Items", expanded=False):
         st.caption(
             "These records are pulled from the Overdue Invoices, Pending Invoices and Unpaid Invoices sheets."
         )
