@@ -632,9 +632,29 @@ def prepare_export_dataframe(df):
 
 def show_formatted_dataframe(df):
     display_df = prepare_display_dataframe(df)
+    numeric_cols = get_numeric_like_columns(df)
+
+    styled_df = display_df.style.set_properties(
+        subset=numeric_cols,
+        **{
+            "text-align": "right"
+        }
+    ).set_properties(
+        subset=[col for col in display_df.columns if col not in numeric_cols],
+        **{
+            "text-align": "left"
+        }
+    ).set_table_styles([
+        {
+            "selector": "th",
+            "props": [
+                ("text-align", "left")
+            ]
+        }
+    ])
 
     st.dataframe(
-        display_df,
+        styled_df,
         use_container_width=True,
         hide_index=True
     )
