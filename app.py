@@ -61,21 +61,75 @@ st.markdown("""
     }
 
     [data-testid="stSidebar"] label {
-        color: #e5e7eb !important;
-        font-weight: 600;
-    }
-
-    [data-testid="stSidebar"] input {
-        color: #020617 !important;
-        background-color: #f8fafc !important;
-    }
-
-    [data-testid="stSidebar"] [data-baseweb="select"] * {
-        color: #020617 !important;
+        color: #f8fafc !important;
+        font-weight: 700;
     }
 
     [data-testid="stSidebar"] .stCaptionContainer {
         color: #cbd5e1 !important;
+    }
+
+    /* Sidebar text input */
+    [data-testid="stSidebar"] input {
+        background-color: rgba(15, 23, 42, 0.98) !important;
+        color: #f8fafc !important;
+        border: 1px solid rgba(148, 163, 184, 0.35) !important;
+        border-radius: 12px !important;
+    }
+
+    [data-testid="stSidebar"] input::placeholder {
+        color: #94a3b8 !important;
+    }
+
+    /* Sidebar select boxes */
+    [data-testid="stSidebar"] div[data-baseweb="select"] > div {
+        background-color: rgba(15, 23, 42, 0.98) !important;
+        border: 1px solid rgba(148, 163, 184, 0.35) !important;
+        border-radius: 12px !important;
+        min-height: 48px;
+    }
+
+    [data-testid="stSidebar"] div[data-baseweb="select"] span {
+        color: #f8fafc !important;
+        font-weight: 600 !important;
+    }
+
+    [data-testid="stSidebar"] div[data-baseweb="select"] input {
+        color: #f8fafc !important;
+    }
+
+    [data-testid="stSidebar"] div[data-baseweb="select"] svg {
+        fill: #f8fafc !important;
+        color: #f8fafc !important;
+    }
+
+    [data-testid="stSidebar"] div[data-baseweb="select"] > div:hover {
+        border-color: rgba(96, 165, 250, 0.75) !important;
+        background-color: rgba(30, 41, 59, 0.98) !important;
+    }
+
+    /* Dropdown menu */
+    div[data-baseweb="popover"] {
+        z-index: 9999 !important;
+    }
+
+    div[data-baseweb="popover"] ul {
+        background-color: #0f172a !important;
+        border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    }
+
+    div[data-baseweb="popover"] li {
+        background-color: #0f172a !important;
+        color: #f8fafc !important;
+    }
+
+    div[data-baseweb="popover"] li:hover {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+    }
+
+    div[data-baseweb="popover"] li span {
+        color: #f8fafc !important;
     }
 
     /* Main dashboard header */
@@ -192,8 +246,8 @@ st.markdown("""
     /* Executive Action box */
     .action-box {
         background:
-            linear-gradient(135deg, rgba(124, 45, 18, 0.48) 0%, rgba(15, 23, 42, 0.94) 55%, rgba(30, 41, 59, 0.92) 100%);
-        border: 1px solid rgba(251, 146, 60, 0.34);
+            linear-gradient(135deg, rgba(124, 45, 18, 0.58) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(30, 41, 59, 0.94) 100%);
+        border: 1px solid rgba(251, 146, 60, 0.44);
         border-left: 6px solid #fb923c;
         border-radius: 20px;
         padding: 22px 24px;
@@ -221,8 +275,8 @@ st.markdown("""
     /* Smart Recommendation box */
     .recommendation-box {
         background:
-            linear-gradient(135deg, rgba(30, 64, 175, 0.44) 0%, rgba(15, 23, 42, 0.94) 55%, rgba(30, 41, 59, 0.92) 100%);
-        border: 1px solid rgba(96, 165, 250, 0.34);
+            linear-gradient(135deg, rgba(30, 64, 175, 0.50) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(30, 41, 59, 0.94) 100%);
+        border: 1px solid rgba(96, 165, 250, 0.44);
         border-left: 6px solid #60a5fa;
         border-radius: 20px;
         padding: 22px 24px;
@@ -248,15 +302,107 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* Streamlit alerts - keep readable on dark app */
+    /* Streamlit alerts - readable on dark app */
     div[data-testid="stAlert"] {
         border-radius: 16px;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
     }
 
     div[data-testid="stAlert"] * {
-        color: #0f172a !important;
+        color: #f8fafc !important;
+        font-weight: 600 !important;
+    }
+
+    div[data-testid="stAlert"] p {
+        color: #f8fafc !important;
+        font-size: 15px !important;
+        line-height: 1.65 !important;
+    }
+
+    /* Make alert backgrounds stronger */
+    div[data-testid="stAlert"][kind="error"],
+    div[data-testid="stAlert"][data-baseweb="notification"] {
+        background-color: rgba(127, 29, 29, 0.52) !important;
+    }
+
+    /* Custom payables boxes */
+    .payables-alert-box {
+        background:
+            linear-gradient(135deg, rgba(127, 29, 29, 0.78) 0%, rgba(69, 10, 10, 0.72) 100%);
+        border: 1px solid rgba(248, 113, 113, 0.55);
+        border-left: 6px solid #f87171;
+        border-radius: 18px;
+        padding: 20px 22px;
+        margin-top: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.30);
+    }
+
+    .payables-alert-title {
+        color: #fecaca !important;
+        font-size: 16px;
+        font-weight: 850;
+        margin-bottom: 6px;
+    }
+
+    .payables-alert-text {
+        color: #ffffff !important;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.65;
+    }
+
+    .payables-info-box {
+        background:
+            linear-gradient(135deg, rgba(30, 64, 175, 0.72) 0%, rgba(15, 23, 42, 0.92) 100%);
+        border: 1px solid rgba(96, 165, 250, 0.50);
+        border-left: 6px solid #60a5fa;
+        border-radius: 18px;
+        padding: 20px 22px;
+        margin-top: 12px;
+        margin-bottom: 24px;
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+    }
+
+    .payables-info-title {
+        color: #bfdbfe !important;
+        font-size: 16px;
+        font-weight: 850;
+        margin-bottom: 6px;
+    }
+
+    .payables-info-text {
+        color: #ffffff !important;
+        font-size: 15px;
+        font-weight: 650;
+        line-height: 1.7;
+    }
+
+    .payables-success-box {
+        background:
+            linear-gradient(135deg, rgba(22, 101, 52, 0.75) 0%, rgba(15, 23, 42, 0.92) 100%);
+        border: 1px solid rgba(74, 222, 128, 0.45);
+        border-left: 6px solid #4ade80;
+        border-radius: 18px;
+        padding: 20px 22px;
+        margin-top: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+    }
+
+    .payables-success-title {
+        color: #bbf7d0 !important;
+        font-size: 16px;
+        font-weight: 850;
+        margin-bottom: 6px;
+    }
+
+    .payables-success-text {
+        color: #ffffff !important;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.65;
     }
 
     /* Tabs */
@@ -542,6 +688,49 @@ def show_section_intro(title, subtitle):
     """, unsafe_allow_html=True)
 
 
+def show_payables_alert(level, amount):
+    if level == "high":
+        st.markdown(f"""
+        <div class="payables-alert-box">
+            <div class="payables-alert-title">Payables Alert</div>
+            <div class="payables-alert-text">
+                High outstanding payables detected: {format_currency(amount)}.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    elif level == "medium":
+        st.markdown(f"""
+        <div class="payables-alert-box">
+            <div class="payables-alert-title">Payables Alert</div>
+            <div class="payables-alert-text">
+                Medium outstanding payables detected: {format_currency(amount)}.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    else:
+        st.markdown(f"""
+        <div class="payables-success-box">
+            <div class="payables-success-title">Payables Alert</div>
+            <div class="payables-success-text">
+                Outstanding payables are currently under control: {format_currency(amount)}.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def show_payables_summary(summary):
+    st.markdown(f"""
+    <div class="payables-info-box">
+        <div class="payables-info-title">Executive Summary Note</div>
+        <div class="payables-info-text">
+            {summary}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 def show_action_required(priority_df):
     if priority_df.empty:
         st.markdown("""
@@ -765,11 +954,11 @@ else:
         st.markdown("### Payables Alert")
 
         if total_unpaid > 10000:
-            st.error(f"High outstanding payables: {format_currency(total_unpaid)}")
+            show_payables_alert("high", total_unpaid)
         elif total_unpaid > 5000:
-            st.warning(f"Medium outstanding payables: {format_currency(total_unpaid)}")
+            show_payables_alert("medium", total_unpaid)
         else:
-            st.success(f"Outstanding payables under control: {format_currency(total_unpaid)}")
+            show_payables_alert("low", total_unpaid)
 
         if total_unpaid > 0:
             main_exposure = (
@@ -786,7 +975,7 @@ else:
         else:
             summary = "There are currently no outstanding payables requiring attention."
 
-        st.info(summary)
+        show_payables_summary(summary)
 
         chart_tab1, chart_tab2 = st.tabs([
             "Grand Total Trend",
