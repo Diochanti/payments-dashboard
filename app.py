@@ -642,13 +642,17 @@ def get_number_column_config(df):
 def show_formatted_dataframe(df, height=None):
     display_df = prepare_display_dataframe(df)
 
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config=get_number_column_config(display_df),
-        height=height
-    )
+    dataframe_kwargs = {
+        "data": display_df,
+        "use_container_width": True,
+        "hide_index": True,
+        "column_config": get_number_column_config(display_df),
+    }
+
+    if height is not None:
+        dataframe_kwargs["height"] = height
+
+    st.dataframe(**dataframe_kwargs)
 
 
 def download_excel(df):
