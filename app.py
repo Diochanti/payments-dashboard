@@ -233,6 +233,81 @@ st.markdown("""
         color: #ffffff !important;
     }
 
+    .risk-section {
+        margin-top: 6px;
+        margin-bottom: 24px;
+    }
+
+    .risk-title {
+        font-size: 21px;
+        font-weight: 850;
+        color: #f8fafc !important;
+        margin-bottom: 6px;
+        letter-spacing: -0.02em;
+    }
+
+    .risk-subtitle {
+        font-size: 13px;
+        color: #cbd5e1 !important;
+        margin-bottom: 14px;
+    }
+
+    .risk-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+
+    .risk-card {
+        background:
+            linear-gradient(180deg, rgba(30, 41, 59, 0.96) 0%, rgba(15, 23, 42, 0.96) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 18px;
+        padding: 18px 18px;
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.24);
+        min-height: 126px;
+    }
+
+    .risk-card.warning {
+        border-left: 5px solid #fb923c;
+    }
+
+    .risk-card.danger {
+        border-left: 5px solid #f87171;
+    }
+
+    .risk-card.info {
+        border-left: 5px solid #60a5fa;
+    }
+
+    .risk-card.success {
+        border-left: 5px solid #4ade80;
+    }
+
+    .risk-label {
+        font-size: 12px;
+        font-weight: 800;
+        color: #cbd5e1 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 8px;
+    }
+
+    .risk-value {
+        font-size: 22px;
+        font-weight: 900;
+        color: #ffffff !important;
+        line-height: 1.2;
+        margin-bottom: 8px;
+    }
+
+    .risk-note {
+        font-size: 12px;
+        color: #cbd5e1 !important;
+        line-height: 1.45;
+    }
+
     .recommendation-box {
         background:
             linear-gradient(135deg, rgba(30, 64, 175, 0.50) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(30, 41, 59, 0.94) 100%);
@@ -443,6 +518,18 @@ st.markdown("""
     table.custom-data-table th.text-header {
         text-align: left !important;
     }
+
+    @media (max-width: 900px) {
+        .risk-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 600px) {
+        .risk-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -520,6 +607,18 @@ def find_column(df, possible_names):
         ),
         None
     )
+
+
+def safe_cell_value(row, column):
+    if column and column in row.index:
+        value = row[column]
+
+        if pd.isna(value) or str(value).strip() == "":
+            return "N/A"
+
+        return str(value)
+
+    return "N/A"
 
 
 def parse_month_value(value):
@@ -1165,6 +1264,114 @@ def show_action_required(priority_df):
     """, unsafe_allow_html=True)
 
 
+def show_top_payment_risks(priority_df):
+    if priority_df.empty or "Priority Type" not in priority_df.columns:
+        return
+
+    amount_col = find_amount_column(priority_df)
+
+    if not amount_col:
+        return
+
+    risk_df = priority_df.copy()
+    risk_df[amount_col] = clean_numeric(risk_df[amount_col])
+
+    total_exposure = risk_df[amount_col].sum()
+
+    exposure_by_type = (
+        risk_df.groupby("Priority Type")[amount_col]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    highest_category = exposure_by_type.index[0] if not exposure_by_type.empty else "N/A"
+    highest_category_amount = exposure_by_type.iloc[0] if not exposure_by_type.empty else 0
+
+    overdue_df = risk_df[risk_df["Priority Type"] == "Overdue"]
+    overdue_exposure = overdue_df[amount_col].sum() if not overdue_df.empty else 0
+
+    largest_item = risk_df.sort_values(by=amount_col, ascending=False).iloc[0]
+
+    invoice_col = find_column(
+        risk_df,
+        ["Invoice #", "Invoice", "Invoice Number", "Number", "Invoice No", "Invoice No."]
+    )
+
+    affiliate_col = find_column(
+        risk_df,
+        ["Affiliate", "Partner", "Display Name", "Partner/Display Name"]
+    )
+
+    platform_col = find_column(
+        risk_df,
+        ["Platform", "Brand"]
+    )
+
+    invoice_value = safe_cell_value(largest_item, invoice_col)
+    affiliate_value = safe_cell_value(largest_item, affiliate_col)
+    platform_value = safe_cell_value(largest_item, platform_col)
+    largest_amount = largest_item[amount_col]
+
+    overdue_count = len(risk_df[risk_df["Priority Type"] == "Overdue"])
+    pending_count = len(risk_df[risk_df["Priority Type"] == "Pending"])
+    unpaid_count = len(risk_df[risk_df["Priority Type"] == "Unpaid"])
+
+    if overdue_count > 0:
+        urgency_note = f"{overdue_count} overdue item(s) should be reviewed first."
+        urgency_class = "danger"
+    elif pending_count > 0:
+        urgency_note = f"{pending_count} pending item(s) are next in the payment workflow."
+        urgency_class = "warning"
+    else:
+        urgency_note = f"{unpaid_count} unpaid item(s) require review."
+        urgency_class = "info"
+
+    st.markdown(f"""
+    <div class="risk-section">
+        <div class="risk-title">Top Payment Risks</div>
+        <div class="risk-subtitle">
+            Automated risk summary based on the current Overdue, Pending and Unpaid invoice queues.
+        </div>
+
+        <div class="risk-grid">
+            <div class="risk-card {urgency_class}">
+                <div class="risk-label">Most Urgent Area</div>
+                <div class="risk-value">{escape(str(highest_category))}</div>
+                <div class="risk-note">
+                    Highest exposure category: <strong>{format_currency(highest_category_amount)}</strong>.
+                    <br>{escape(urgency_note)}
+                </div>
+            </div>
+
+            <div class="risk-card danger">
+                <div class="risk-label">Overdue Exposure</div>
+                <div class="risk-value">{format_currency(overdue_exposure)}</div>
+                <div class="risk-note">
+                    Overdue invoices are treated as the highest priority items in the queue.
+                </div>
+            </div>
+
+            <div class="risk-card warning">
+                <div class="risk-label">Largest Invoice / Item</div>
+                <div class="risk-value">{format_currency(largest_amount)}</div>
+                <div class="risk-note">
+                    {escape(affiliate_value)} · {escape(platform_value)}
+                    <br>Invoice: {escape(invoice_value)}
+                </div>
+            </div>
+
+            <div class="risk-card info">
+                <div class="risk-label">Total Payment Exposure</div>
+                <div class="risk-value">{format_currency(total_exposure)}</div>
+                <div class="risk-note">
+                    Includes {len(risk_df)} item(s): {overdue_count} overdue, {pending_count} pending, {unpaid_count} unpaid.
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 def show_action_required_details(priority_df):
     if priority_df.empty or "Priority Type" not in priority_df.columns:
         return
@@ -1339,12 +1546,13 @@ show_header()
 
 
 # =====================================================
-# EXECUTIVE ACTION REQUIRED
+# EXECUTIVE ACTION REQUIRED + TOP RISKS
 # =====================================================
 
 try:
     priority_snapshot = build_priority_queue()
     show_action_required(priority_snapshot)
+    show_top_payment_risks(priority_snapshot)
     show_action_required_details(priority_snapshot)
 except Exception:
     st.warning("Action Required summary could not be loaded.")
