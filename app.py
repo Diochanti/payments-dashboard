@@ -451,6 +451,9 @@ def find_amount_column(df):
         "Commission",
         "Total Amount",
         "Total Commissions",
+        "OMG Unpaid",
+        "WS Unpaid",
+        "Total Unpaid",
     ]
 
     return next((col for col in possible if col in df.columns), None)
@@ -561,33 +564,40 @@ def is_numeric_like_column(series):
     converted = pd.to_numeric(cleaned, errors="coerce")
     valid_ratio = converted.notna().mean()
 
-    return valid_ratio >= 0.75
+    return valid_ratio >= 0.65
 
 
 def get_numeric_like_columns(df):
-    excluded_keywords = [
+    excluded_exact = {
         "month",
         "invoice",
+        "invoice #",
+        "invoice number",
+        "invoice no",
+        "invoice no.",
         "number",
         "no",
         "id",
         "date",
         "status",
         "priority",
+        "priority type",
+        "priority rank",
         "source",
         "affiliate",
         "partner",
         "platform",
         "brand",
         "display name",
-    ]
+        "partner/display name",
+    }
 
     numeric_cols = []
 
     for col in df.columns:
         col_lower = str(col).strip().lower()
 
-        if any(keyword in col_lower for keyword in excluded_keywords):
+        if col_lower in excluded_exact:
             continue
 
         if pd.api.types.is_numeric_dtype(df[col]) or is_numeric_like_column(df[col]):
@@ -616,19 +626,29 @@ def prepare_export_dataframe(df):
     return export_df
 
 
-def format_dataframe_for_display(df):
+def get_number_column_config(df):
     display_df = prepare_display_dataframe(df)
     numeric_cols = get_numeric_like_columns(display_df)
 
-    format_dict = {
-        col: "{:,.2f}"
+    return {
+        col: st.column_config.NumberColumn(
+            label=col,
+            format="%.2f"
+        )
         for col in numeric_cols
     }
 
-    if format_dict:
-        return display_df.style.format(format_dict, na_rep="")
 
-    return display_df
+def show_formatted_dataframe(df, height=None):
+    display_df = prepare_display_dataframe(df)
+
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config=get_number_column_config(display_df),
+        height=height
+    )
 
 
 def download_excel(df):
@@ -787,10 +807,6 @@ def safe_sum(df, column):
 
 def format_currency(value):
     return f"€{value:,.2f}"
-
-
-def format_number(value):
-    return f"{value:,.2f}"
 
 
 def apply_filters(df):
@@ -1056,11 +1072,7 @@ def show_action_required_details(priority_df):
             else:
                 if amount_col:
                     st.metric("Overdue Exposure", format_currency(clean_numeric(overdue_df[amount_col]).sum()))
-                st.dataframe(
-                    format_dataframe_for_display(overdue_df),
-                    use_container_width=True,
-                    hide_index=True
-                )
+                show_formatted_dataframe(overdue_df)
 
         with tab_pending:
             if pending_df.empty:
@@ -1068,11 +1080,7 @@ def show_action_required_details(priority_df):
             else:
                 if amount_col:
                     st.metric("Pending Exposure", format_currency(clean_numeric(pending_df[amount_col]).sum()))
-                st.dataframe(
-                    format_dataframe_for_display(pending_df),
-                    use_container_width=True,
-                    hide_index=True
-                )
+                show_formatted_dataframe(pending_df)
 
         with tab_unpaid:
             if unpaid_df.empty:
@@ -1080,11 +1088,7 @@ def show_action_required_details(priority_df):
             else:
                 if amount_col:
                     st.metric("Unpaid Exposure", format_currency(clean_numeric(unpaid_df[amount_col]).sum()))
-                st.dataframe(
-                    format_dataframe_for_display(unpaid_df),
-                    use_container_width=True,
-                    hide_index=True
-                )
+                show_formatted_dataframe(unpaid_df)
 
 
 def show_smart_payment_recommendation(priority_df):
@@ -1407,11 +1411,7 @@ else:
 
     st.markdown("### Data Table")
 
-    st.dataframe(
-        format_dataframe_for_display(df),
-        use_container_width=True,
-        hide_index=True
-    )
+    show_formatted_dataframe(df)
 
     st.markdown("---")
 
