@@ -502,8 +502,36 @@ st.markdown("""
         background: rgba(15, 23, 42, 0.58);
     }
 
+    table.custom-data-table tbody tr.row-overdue td {
+        background: rgba(127, 29, 29, 0.28) !important;
+    }
+
+    table.custom-data-table tbody tr.row-pending td {
+        background: rgba(146, 64, 14, 0.24) !important;
+    }
+
+    table.custom-data-table tbody tr.row-unpaid td {
+        background: rgba(113, 63, 18, 0.20) !important;
+    }
+
+    table.custom-data-table tbody tr.row-paid td {
+        background: rgba(22, 101, 52, 0.20) !important;
+    }
+
+    table.custom-data-table tbody tr.row-high td {
+        background: rgba(127, 29, 29, 0.30) !important;
+    }
+
+    table.custom-data-table tbody tr.row-medium td {
+        background: rgba(146, 64, 14, 0.24) !important;
+    }
+
+    table.custom-data-table tbody tr.row-review td {
+        background: rgba(113, 63, 18, 0.20) !important;
+    }
+
     table.custom-data-table tbody tr:hover td {
-        background: rgba(30, 41, 59, 0.92);
+        background: rgba(30, 41, 59, 0.96) !important;
     }
 
     table.custom-data-table td.text-cell {
@@ -761,6 +789,30 @@ def get_numeric_like_columns(df):
     return numeric_cols
 
 
+def get_row_class(row):
+    searchable_values = []
+
+    for possible_col in ["Priority Type", "Priority", "Status", "Payment Status", "Source"]:
+        if possible_col in row.index:
+            searchable_values.append(str(row[possible_col]).strip().lower())
+
+    combined = " ".join(searchable_values)
+
+    if "overdue" in combined or "high" in combined:
+        return "row-overdue"
+
+    if "pending" in combined or "medium" in combined:
+        return "row-pending"
+
+    if "unpaid" in combined or "review" in combined:
+        return "row-unpaid"
+
+    if "paid" in combined and "unpaid" not in combined:
+        return "row-paid"
+
+    return ""
+
+
 def prepare_numeric_dataframe(df):
     numeric_df = df.copy()
     numeric_cols = get_numeric_like_columns(numeric_df)
@@ -797,8 +849,11 @@ def show_formatted_dataframe(df):
 
     html += '</tr></thead><tbody>'
 
-    for _, row in display_df.iterrows():
-        html += '<tr>'
+    for index, row in display_df.iterrows():
+        original_row = df.loc[index] if index in df.index else row
+        row_class = get_row_class(original_row)
+
+        html += f'<tr class="{row_class}">'
 
         for col in display_df.columns:
             cell_class = "number-cell" if col in numeric_cols else "text-cell"
