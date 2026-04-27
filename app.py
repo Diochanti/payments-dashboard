@@ -442,144 +442,6 @@ def load_tab(tab_name):
     return pd.DataFrame(records)
 
 
-def download_excel(df):
-    output = BytesIO()
-
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Report")
-
-    return output.getvalue()
-
-
-def download_pdf(df, selected_tab):
-    try:
-        from reportlab.lib import colors
-        from reportlab.lib.colors import HexColor
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
-    except ImportError:
-        return None
-
-    output = BytesIO()
-
-    doc = SimpleDocTemplate(
-        output,
-        pagesize=landscape(A4),
-        rightMargin=1.0 * cm,
-        leftMargin=1.0 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm,
-    )
-
-    styles = getSampleStyleSheet()
-
-    title_style = ParagraphStyle(
-        "DashboardTitle",
-        parent=styles["Title"],
-        textColor=HexColor("#0f172a"),
-        fontName="Helvetica-Bold",
-        fontSize=18,
-        leading=22,
-        spaceAfter=8,
-    )
-
-    meta_style = ParagraphStyle(
-        "MetaText",
-        parent=styles["Normal"],
-        textColor=HexColor("#475569"),
-        fontName="Helvetica",
-        fontSize=9,
-        leading=12,
-        spaceAfter=10,
-    )
-
-    cell_style = ParagraphStyle(
-        "CellText",
-        parent=styles["Normal"],
-        textColor=HexColor("#111827"),
-        fontName="Helvetica",
-        fontSize=6.4,
-        leading=8,
-    )
-
-    header_style = ParagraphStyle(
-        "HeaderText",
-        parent=styles["Normal"],
-        textColor=colors.white,
-        fontName="Helvetica-Bold",
-        fontSize=6.7,
-        leading=8,
-    )
-
-    story = []
-    generated_at = datetime.now().strftime("%d %b %Y, %H:%M")
-
-    story.append(Paragraph(escape(f"{selected_tab} - Export Report"), title_style))
-    story.append(Paragraph(f"Generated from Payments Management Dashboard on {generated_at}", meta_style))
-    story.append(Paragraph(f"Rows: {len(df)} | Columns: {len(df.columns)}", meta_style))
-    story.append(Spacer(1, 8))
-
-    if df.empty:
-        story.append(Paragraph("No data available for the selected filters.", meta_style))
-        doc.build(story)
-        return output.getvalue()
-
-    pdf_df = prepare_display_dataframe(df).copy().fillna("").astype(str)
-
-    max_columns_per_table = 6
-    all_columns = list(pdf_df.columns)
-    column_groups = [
-        all_columns[i:i + max_columns_per_table]
-        for i in range(0, len(all_columns), max_columns_per_table)
-    ]
-
-    available_width = landscape(A4)[0] - doc.leftMargin - doc.rightMargin
-
-    for group_index, columns_group in enumerate(column_groups, start=1):
-        if group_index > 1:
-            story.append(PageBreak())
-
-        table_data = []
-        table_data.append([
-            Paragraph(escape(str(col)), header_style)
-            for col in columns_group
-        ])
-
-        for _, row in pdf_df[columns_group].iterrows():
-            table_data.append([
-                Paragraph(escape(str(row[col])), cell_style)
-                for col in columns_group
-            ])
-
-        col_width = available_width / max(1, len(columns_group))
-        table = Table(
-            table_data,
-            colWidths=[col_width] * len(columns_group),
-            repeatRows=1,
-            hAlign="LEFT"
-        )
-
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), HexColor("#0f172a")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.25, HexColor("#cbd5e1")),
-            ("BACKGROUND", (0, 1), (-1, -1), HexColor("#ffffff")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [HexColor("#ffffff"), HexColor("#f8fafc")]),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ]))
-
-        story.append(table)
-
-    doc.build(story)
-    return output.getvalue()
-
-
 def find_amount_column(df):
     possible = [
         "Amount",
@@ -744,6 +606,16 @@ def prepare_display_dataframe(df):
     return display_df
 
 
+def prepare_export_dataframe(df):
+    export_df = prepare_display_dataframe(df)
+    numeric_cols = get_numeric_like_columns(export_df)
+
+    for col in numeric_cols:
+        export_df[col] = export_df[col].apply(lambda x: f"{float(x):,.2f}")
+
+    return export_df
+
+
 def format_dataframe_for_display(df):
     display_df = prepare_display_dataframe(df)
     numeric_cols = get_numeric_like_columns(display_df)
@@ -759,6 +631,153 @@ def format_dataframe_for_display(df):
     return display_df
 
 
+def download_excel(df):
+    output = BytesIO()
+
+    export_df = prepare_display_dataframe(df)
+    numeric_cols = get_numeric_like_columns(export_df)
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        export_df.to_excel(writer, index=False, sheet_name="Report")
+        worksheet = writer.sheets["Report"]
+
+        for col_index, col_name in enumerate(export_df.columns, start=1):
+            if col_name in numeric_cols:
+                for row in range(2, len(export_df) + 2):
+                    worksheet.cell(row=row, column=col_index).number_format = '#,##0.00'
+
+    return output.getvalue()
+
+
+def download_pdf(df, selected_tab):
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.colors import HexColor
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    except ImportError:
+        return None
+
+    output = BytesIO()
+
+    doc = SimpleDocTemplate(
+        output,
+        pagesize=landscape(A4),
+        rightMargin=1.0 * cm,
+        leftMargin=1.0 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm,
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        "DashboardTitle",
+        parent=styles["Title"],
+        textColor=HexColor("#0f172a"),
+        fontName="Helvetica-Bold",
+        fontSize=18,
+        leading=22,
+        spaceAfter=8,
+    )
+
+    meta_style = ParagraphStyle(
+        "MetaText",
+        parent=styles["Normal"],
+        textColor=HexColor("#475569"),
+        fontName="Helvetica",
+        fontSize=9,
+        leading=12,
+        spaceAfter=10,
+    )
+
+    cell_style = ParagraphStyle(
+        "CellText",
+        parent=styles["Normal"],
+        textColor=HexColor("#111827"),
+        fontName="Helvetica",
+        fontSize=6.4,
+        leading=8,
+    )
+
+    header_style = ParagraphStyle(
+        "HeaderText",
+        parent=styles["Normal"],
+        textColor=colors.white,
+        fontName="Helvetica-Bold",
+        fontSize=6.7,
+        leading=8,
+    )
+
+    story = []
+    generated_at = datetime.now().strftime("%d %b %Y, %H:%M")
+
+    story.append(Paragraph(escape(f"{selected_tab} - Export Report"), title_style))
+    story.append(Paragraph(f"Generated from Payments Management Dashboard on {generated_at}", meta_style))
+    story.append(Paragraph(f"Rows: {len(df)} | Columns: {len(df.columns)}", meta_style))
+    story.append(Spacer(1, 8))
+
+    if df.empty:
+        story.append(Paragraph("No data available for the selected filters.", meta_style))
+        doc.build(story)
+        return output.getvalue()
+
+    pdf_df = prepare_export_dataframe(df).copy().fillna("").astype(str)
+
+    max_columns_per_table = 6
+    all_columns = list(pdf_df.columns)
+    column_groups = [
+        all_columns[i:i + max_columns_per_table]
+        for i in range(0, len(all_columns), max_columns_per_table)
+    ]
+
+    available_width = landscape(A4)[0] - doc.leftMargin - doc.rightMargin
+
+    for group_index, columns_group in enumerate(column_groups, start=1):
+        if group_index > 1:
+            story.append(PageBreak())
+
+        table_data = []
+        table_data.append([
+            Paragraph(escape(str(col)), header_style)
+            for col in columns_group
+        ])
+
+        for _, row in pdf_df[columns_group].iterrows():
+            table_data.append([
+                Paragraph(escape(str(row[col])), cell_style)
+                for col in columns_group
+            ])
+
+        col_width = available_width / max(1, len(columns_group))
+        table = Table(
+            table_data,
+            colWidths=[col_width] * len(columns_group),
+            repeatRows=1,
+            hAlign="LEFT"
+        )
+
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), HexColor("#0f172a")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.25, HexColor("#cbd5e1")),
+            ("BACKGROUND", (0, 1), (-1, -1), HexColor("#ffffff")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [HexColor("#ffffff"), HexColor("#f8fafc")]),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+
+        story.append(table)
+
+    doc.build(story)
+    return output.getvalue()
+
+
 def safe_sum(df, column):
     if column in df.columns:
         return clean_numeric(df[column]).sum()
@@ -767,7 +786,11 @@ def safe_sum(df, column):
 
 
 def format_currency(value):
-    return f"€{value:,.0f}"
+    return f"€{value:,.2f}"
+
+
+def format_number(value):
+    return f"{value:,.2f}"
 
 
 def apply_filters(df):
@@ -1122,7 +1145,7 @@ def show_downloads(df, selected_tab):
     with col1:
         st.download_button(
             "Download CSV",
-            data=prepare_display_dataframe(df).to_csv(index=False).encode("utf-8-sig"),
+            data=prepare_export_dataframe(df).to_csv(index=False).encode("utf-8-sig"),
             file_name=f"{selected_tab.replace(' ', '_')}.csv",
             mime="text/csv",
             use_container_width=True,
@@ -1131,7 +1154,7 @@ def show_downloads(df, selected_tab):
     with col2:
         st.download_button(
             "Download Excel",
-            data=download_excel(prepare_display_dataframe(df)),
+            data=download_excel(df),
             file_name=f"{selected_tab.replace(' ', '_')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
