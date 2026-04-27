@@ -526,7 +526,7 @@ def download_pdf(df, selected_tab):
         doc.build(story)
         return output.getvalue()
 
-    pdf_df = df.copy().fillna("").astype(str)
+    pdf_df = prepare_display_dataframe(df).copy().fillna("").astype(str)
 
     max_columns_per_table = 6
     all_columns = list(pdf_df.columns)
@@ -612,17 +612,17 @@ def parse_month_value(value):
         return pd.NaT
 
     formats = [
-        "%b-%y",      # Jul-25
-        "%B-%y",      # July-25
-        "%b %y",      # Jul 25
-        "%B %y",      # July 25
-        "%b-%Y",      # Jul-2025
-        "%B-%Y",      # July-2025
-        "%b %Y",      # Jul 2025
-        "%B %Y",      # July 2025
-        "%Y-%m",      # 2025-07
-        "%m-%Y",      # 07-2025
-        "%m/%Y",      # 07/2025
+        "%b-%y",
+        "%B-%y",
+        "%b %y",
+        "%B %y",
+        "%b-%Y",
+        "%B-%Y",
+        "%b %Y",
+        "%B %Y",
+        "%Y-%m",
+        "%m-%Y",
+        "%m/%Y",
     ]
 
     for fmt in formats:
@@ -633,6 +633,7 @@ def parse_month_value(value):
             pass
 
     parsed = pd.to_datetime(text, errors="coerce")
+
     if pd.notna(parsed):
         return pd.Timestamp(parsed.year, parsed.month, 1)
 
@@ -679,6 +680,83 @@ def clean_numeric(series):
         .pipe(pd.to_numeric, errors="coerce")
         .fillna(0)
     )
+
+
+def is_numeric_like_column(series):
+    non_empty = series.dropna().astype(str).str.strip()
+    non_empty = non_empty[non_empty != ""]
+
+    if non_empty.empty:
+        return False
+
+    cleaned = (
+        non_empty
+        .str.replace("€", "", regex=False)
+        .str.replace(",", "", regex=False)
+        .str.replace(" ", "", regex=False)
+    )
+
+    converted = pd.to_numeric(cleaned, errors="coerce")
+    valid_ratio = converted.notna().mean()
+
+    return valid_ratio >= 0.75
+
+
+def get_numeric_like_columns(df):
+    excluded_keywords = [
+        "month",
+        "invoice",
+        "number",
+        "no",
+        "id",
+        "date",
+        "status",
+        "priority",
+        "source",
+        "affiliate",
+        "partner",
+        "platform",
+        "brand",
+        "display name",
+    ]
+
+    numeric_cols = []
+
+    for col in df.columns:
+        col_lower = str(col).strip().lower()
+
+        if any(keyword in col_lower for keyword in excluded_keywords):
+            continue
+
+        if pd.api.types.is_numeric_dtype(df[col]) or is_numeric_like_column(df[col]):
+            numeric_cols.append(col)
+
+    return numeric_cols
+
+
+def prepare_display_dataframe(df):
+    display_df = df.copy()
+    numeric_cols = get_numeric_like_columns(display_df)
+
+    for col in numeric_cols:
+        display_df[col] = clean_numeric(display_df[col])
+
+    return display_df
+
+
+def format_dataframe_for_display(df):
+    display_df = prepare_display_dataframe(df)
+    numeric_cols = get_numeric_like_columns(display_df)
+
+    format_dict = {
+        col: "{:,.2f}"
+        for col in numeric_cols
+    }
+
+    if format_dict:
+        return display_df.style.format(format_dict, na_rep="")
+
+    return display_df
 
 
 def safe_sum(df, column):
@@ -985,7 +1063,7 @@ def show_downloads(df, selected_tab):
     with col1:
         st.download_button(
             "Download CSV",
-            data=df.to_csv(index=False).encode("utf-8-sig"),
+            data=prepare_display_dataframe(df).to_csv(index=False).encode("utf-8-sig"),
             file_name=f"{selected_tab.replace(' ', '_')}.csv",
             mime="text/csv",
             use_container_width=True,
@@ -994,7 +1072,7 @@ def show_downloads(df, selected_tab):
     with col2:
         st.download_button(
             "Download Excel",
-            data=download_excel(df),
+            data=download_excel(prepare_display_dataframe(df)),
             file_name=f"{selected_tab.replace(' ', '_')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
@@ -1247,7 +1325,7 @@ else:
     st.markdown("### Data Table")
 
     st.dataframe(
-        df,
+        format_dataframe_for_display(df),
         use_container_width=True,
         hide_index=True
     )
