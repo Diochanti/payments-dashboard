@@ -1,16 +1,156 @@
 import json
 from io import BytesIO
+from datetime import datetime
 
 import gspread
 import pandas as pd
 import streamlit as st
 from google.oauth2.service_account import Credentials
 
-st.set_page_config(page_title="Payments Dashboard", layout="wide")
 
-st.title("💼 Payments Management Dashboard")
+# =====================================================
+# PAGE CONFIG
+# =====================================================
 
-# Google Sheets connection for Streamlit Cloud
+st.set_page_config(
+    page_title="Payments Dashboard",
+    page_icon="💼",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+
+# =====================================================
+# CUSTOM CORPORATE CSS
+# =====================================================
+
+st.markdown("""
+<style>
+    .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
+        max-width: 1450px;
+    }
+
+    [data-testid="stSidebar"] {
+        background-color: #0f172a;
+    }
+
+    [data-testid="stSidebar"] * {
+        color: #f8fafc;
+    }
+
+    [data-testid="stSidebar"] label {
+        color: #e5e7eb !important;
+        font-weight: 500;
+    }
+
+    .dashboard-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+        padding: 30px 34px;
+        border-radius: 20px;
+        color: white;
+        margin-bottom: 26px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+    }
+
+    .dashboard-title {
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 6px;
+        letter-spacing: -0.03em;
+    }
+
+    .dashboard-subtitle {
+        font-size: 15px;
+        color: #cbd5e1;
+        line-height: 1.6;
+    }
+
+    .status-pill {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background-color: rgba(34, 197, 94, 0.14);
+        color: #bbf7d0;
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 14px;
+        border: 1px solid rgba(187, 247, 208, 0.25);
+    }
+
+    .section-title {
+        font-size: 22px;
+        font-weight: 750;
+        color: #111827;
+        margin-top: 6px;
+        margin-bottom: 8px;
+    }
+
+    .section-subtitle {
+        font-size: 14px;
+        color: #64748b;
+        margin-bottom: 18px;
+    }
+
+    .corporate-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 22px 24px;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.055);
+        margin-bottom: 18px;
+    }
+
+    div[data-testid="stMetric"] {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        padding: 18px 20px;
+        border-radius: 16px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.055);
+    }
+
+    div[data-testid="stMetricLabel"] {
+        font-size: 13px;
+        font-weight: 650;
+        color: #64748b;
+    }
+
+    div[data-testid="stMetricValue"] {
+        font-size: 27px;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    .small-note {
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.6;
+    }
+
+    .divider {
+        height: 1px;
+        background: #e5e7eb;
+        margin: 20px 0;
+    }
+
+    button[kind="secondary"] {
+        border-radius: 12px !important;
+        border: 1px solid #cbd5e1 !important;
+        font-weight: 600 !important;
+    }
+
+    .stDownloadButton button {
+        width: 100%;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# =====================================================
+# GOOGLE SHEETS CONNECTION
+# =====================================================
+
 scope = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
@@ -26,6 +166,11 @@ client = gspread.authorize(creds)
 
 spreadsheet = client.open_by_key("1XCugk_3eGhdouHRDfSgWz6b9BDABc8eB3knAOJCGr8E")
 
+
+# =====================================================
+# AVAILABLE SECTIONS
+# =====================================================
+
 tabs = {
     "Monthly Overview": "Monthly Overview",
     "Payment Priority Queue": "Payment Priority Queue",
@@ -38,33 +183,79 @@ tabs = {
     "Pending Invoices": "Pending Invoices",
 }
 
+
+# =====================================================
+# HELPER FUNCTIONS
+# =====================================================
+
 def load_tab(tab_name):
     worksheet = spreadsheet.worksheet(tab_name)
-    return pd.DataFrame(worksheet.get_all_records())
+    records = worksheet.get_all_records()
+    return pd.DataFrame(records)
+
 
 def download_excel(df):
     output = BytesIO()
+
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Report")
+
     return output.getvalue()
 
+
 def find_amount_column(df):
-    possible = ["Amount", "Grand Total", "Total", "Net", "Commission", "Total Amount"]
+    possible = [
+        "Amount",
+        "Grand Total",
+        "Total",
+        "Net",
+        "Commission",
+        "Total Amount",
+        "Total Commissions",
+    ]
+
     return next((col for col in possible if col in df.columns), None)
+
 
 def find_column(df, possible_names):
     return next(
         (
             col for col in df.columns
-            if str(col).strip().lower() in [name.strip().lower() for name in possible_names]
+            if str(col).strip().lower()
+            in [name.strip().lower() for name in possible_names]
         ),
         None
     )
 
+
+def clean_numeric(series):
+    return (
+        series.astype(str)
+        .str.replace("€", "", regex=False)
+        .str.replace(",", "", regex=False)
+        .str.replace(" ", "", regex=False)
+        .replace("", "0")
+        .pipe(pd.to_numeric, errors="coerce")
+        .fillna(0)
+    )
+
+
+def safe_sum(df, column):
+    if column in df.columns:
+        return clean_numeric(df[column]).sum()
+
+    return 0
+
+
+def format_currency(value):
+    return f"€{value:,.0f}"
+
+
 def apply_filters(df):
     filtered = df.copy()
 
-    st.sidebar.markdown("### Filters")
+    st.sidebar.markdown("## Control Panel")
+    st.sidebar.caption("Filter and explore payment data")
 
     invoice_col = find_column(
         filtered,
@@ -72,7 +263,7 @@ def apply_filters(df):
     )
 
     if invoice_col:
-        invoice_search = st.sidebar.text_input("Search Invoice #")
+        invoice_search = st.sidebar.text_input("Search invoice")
 
         if invoice_search:
             filtered = filtered[
@@ -92,13 +283,25 @@ def apply_filters(df):
         existing_col = find_column(filtered, columns)
 
         if existing_col:
-            options = ["All"] + sorted(filtered[existing_col].dropna().astype(str).unique().tolist())
+            options = ["All"] + sorted(
+                filtered[existing_col]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
+            )
+
             selected = st.sidebar.selectbox(label, options)
 
             if selected != "All":
                 filtered = filtered[filtered[existing_col].astype(str) == selected]
 
+    st.sidebar.markdown("---")
+    st.sidebar.caption("Data source: Google Sheets")
+    st.sidebar.caption("Status: Live sync enabled")
+
     return filtered
+
 
 def build_priority_queue():
     frames = []
@@ -117,6 +320,7 @@ def build_priority_queue():
                 temp["Source"] = tab_name
                 temp["Priority Type"] = source_status
                 frames.append(temp)
+
         except Exception:
             pass
 
@@ -128,7 +332,7 @@ def build_priority_queue():
     amount_col = find_amount_column(queue)
 
     if amount_col:
-        queue[amount_col] = pd.to_numeric(queue[amount_col], errors="coerce").fillna(0)
+        queue[amount_col] = clean_numeric(queue[amount_col])
 
     priority_order = {
         "Overdue": 1,
@@ -139,64 +343,161 @@ def build_priority_queue():
     queue["Priority Rank"] = queue["Priority Type"].map(priority_order).fillna(9)
 
     if amount_col:
-        queue = queue.sort_values(by=["Priority Rank", amount_col], ascending=[True, False])
+        queue = queue.sort_values(
+            by=["Priority Rank", amount_col],
+            ascending=[True, False]
+        )
     else:
         queue = queue.sort_values(by=["Priority Rank"], ascending=True)
 
     queue["Priority"] = queue["Priority Type"].map({
         "Overdue": "🔴 High",
         "Pending": "🟠 Medium",
-        "Unpaid": "🟡 Review"
+        "Unpaid": "🟡 Review",
     })
 
     return queue
 
-selected_tab = st.sidebar.selectbox("Select section", list(tabs.keys()))
 
-if selected_tab == "Payment Priority Queue":
-    df = build_priority_queue()
-    df = apply_filters(df)
-else:
-    df = load_tab(tabs[selected_tab])
-    df = apply_filters(df)
+def show_header():
+    st.markdown(f"""
+    <div class="dashboard-header">
+        <div class="dashboard-title">Payments Management Dashboard</div>
+        <div class="dashboard-subtitle">
+            Corporate finance operations dashboard for invoice monitoring,
+            payment prioritisation, VAT review and monthly reporting.
+            <br>
+            Last updated: {datetime.now().strftime("%d %b %Y, %H:%M")}
+        </div>
+        <div class="status-pill">● Live Google Sheets Sync</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.subheader(selected_tab)
+
+def show_section_intro(title, subtitle):
+    st.markdown(f"""
+    <div class="section-title">{title}</div>
+    <div class="section-subtitle">{subtitle}</div>
+    """, unsafe_allow_html=True)
+
+
+def show_downloads(df, selected_tab):
+    st.markdown("### Export Centre")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.download_button(
+            "Download CSV",
+            data=df.to_csv(index=False).encode("utf-8-sig"),
+            file_name=f"{selected_tab.replace(' ', '_')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+    with col2:
+        st.download_button(
+            "Download Excel",
+            data=download_excel(df),
+            file_name=f"{selected_tab.replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+
+
+# =====================================================
+# SIDEBAR NAVIGATION
+# =====================================================
+
+st.sidebar.markdown("# Payments Dashboard")
+st.sidebar.markdown("Corporate finance workspace")
+st.sidebar.markdown("---")
+
+selected_tab = st.sidebar.selectbox(
+    "Select section",
+    list(tabs.keys())
+)
+
+
+# =====================================================
+# LOAD DATA
+# =====================================================
+
+try:
+    if selected_tab == "Payment Priority Queue":
+        df = build_priority_queue()
+        df = apply_filters(df)
+    else:
+        df = load_tab(tabs[selected_tab])
+        df = apply_filters(df)
+
+except Exception as error:
+    st.error("The dashboard could not load the selected section.")
+    st.exception(error)
+    st.stop()
+
+
+# =====================================================
+# MAIN HEADER
+# =====================================================
+
+show_header()
+
+
+# =====================================================
+# EMPTY STATE
+# =====================================================
 
 if df.empty:
+    show_section_intro(
+        selected_tab,
+        "No records are available for the selected filters."
+    )
+
     st.warning("No data found for this section.")
 
 else:
+
+    # =====================================================
+    # MONTHLY OVERVIEW
+    # =====================================================
+
     if selected_tab == "Monthly Overview":
-        st.markdown("### 📊 Executive Summary")
+        show_section_intro(
+            "Monthly Overview",
+            "Executive summary of commissions, fixes, grand totals and outstanding payables."
+        )
+
+        total_commissions = safe_sum(df, "Total Commissions")
+        total_fixes = safe_sum(df, "Total Fixes")
+        grand_total = safe_sum(df, "Grand Total")
+
+        omg_unpaid = safe_sum(df, "OMG Unpaid")
+        ws_unpaid = safe_sum(df, "WS Unpaid")
+        total_unpaid = omg_unpaid + ws_unpaid
 
         col1, col2, col3 = st.columns(3)
 
-        col1.metric("Total Commissions", f"€{df['Total Commissions'].sum():,.0f}")
-        col2.metric("Total Fixes", f"€{df['Total Fixes'].sum():,.0f}")
-        col3.metric("Grand Total", f"€{df['Grand Total'].sum():,.0f}")
+        col1.metric("Total Commissions", format_currency(total_commissions))
+        col2.metric("Total Fixes", format_currency(total_fixes))
+        col3.metric("Grand Total", format_currency(grand_total))
 
-        st.markdown("### 💸 Outstanding Payables")
-
-        omg_unpaid = df["OMG Unpaid"].sum() if "OMG Unpaid" in df.columns else 0
-        ws_unpaid = df["WS Unpaid"].sum() if "WS Unpaid" in df.columns else 0
-        total_unpaid = omg_unpaid + ws_unpaid
+        st.markdown("")
 
         col4, col5, col6 = st.columns(3)
 
-        col4.metric("OMG Outstanding", f"€{omg_unpaid:,.0f}")
-        col5.metric("WS Outstanding", f"€{ws_unpaid:,.0f}")
-        col6.metric("Total Outstanding", f"€{total_unpaid:,.0f}")
+        col4.metric("OMG Outstanding", format_currency(omg_unpaid))
+        col5.metric("WS Outstanding", format_currency(ws_unpaid))
+        col6.metric("Total Outstanding", format_currency(total_unpaid))
 
-        st.markdown("### 🚨 Payables Alert")
+        st.markdown("### Payables Alert")
 
         if total_unpaid > 10000:
-            st.error(f"⚠️ High outstanding payables: €{total_unpaid:,.0f}")
+            st.error(f"High outstanding payables: {format_currency(total_unpaid)}")
         elif total_unpaid > 5000:
-            st.warning(f"⚠️ Medium outstanding payables: €{total_unpaid:,.0f}")
+            st.warning(f"Medium outstanding payables: {format_currency(total_unpaid)}")
         else:
-            st.success(f"✅ Outstanding payables under control: €{total_unpaid:,.0f}")
-
-        st.markdown("### 🧾 Executive Summary Note")
+            st.success(f"Outstanding payables under control: {format_currency(total_unpaid)}")
 
         if total_unpaid > 0:
             main_exposure = (
@@ -206,71 +507,128 @@ else:
             )
 
             summary = (
-                f"Outstanding payables currently stand at €{total_unpaid:,.0f}. "
+                f"Outstanding payables currently stand at {format_currency(total_unpaid)}. "
                 f"The highest exposure is associated with {main_exposure}. "
-                f"These amounts should be reviewed for the upcoming payment cycle."
+                f"These amounts should be reviewed before the upcoming payment cycle."
             )
         else:
             summary = "There are currently no outstanding payables requiring attention."
 
         st.info(summary)
 
-        st.markdown("### 📈 Charts")
+        chart_tab1, chart_tab2 = st.tabs([
+            "Grand Total Trend",
+            "Outstanding Payables"
+        ])
 
-        if "Month" in df.columns and "Grand Total" in df.columns:
-            st.bar_chart(df[["Month", "Grand Total"]].set_index("Month"))
+        with chart_tab1:
+            if "Month" in df.columns and "Grand Total" in df.columns:
+                chart_df = df.copy()
+                chart_df["Grand Total"] = clean_numeric(chart_df["Grand Total"])
+                st.bar_chart(chart_df[["Month", "Grand Total"]].set_index("Month"))
+            else:
+                st.caption("Grand Total chart is not available for this data structure.")
 
-        if "Month" in df.columns and "OMG Unpaid" in df.columns and "WS Unpaid" in df.columns:
-            st.bar_chart(df[["Month", "OMG Unpaid", "WS Unpaid"]].set_index("Month"))
+        with chart_tab2:
+            if (
+                "Month" in df.columns
+                and "OMG Unpaid" in df.columns
+                and "WS Unpaid" in df.columns
+            ):
+                chart_df = df.copy()
+                chart_df["OMG Unpaid"] = clean_numeric(chart_df["OMG Unpaid"])
+                chart_df["WS Unpaid"] = clean_numeric(chart_df["WS Unpaid"])
+                st.bar_chart(
+                    chart_df[["Month", "OMG Unpaid", "WS Unpaid"]].set_index("Month")
+                )
+            else:
+                st.caption("Outstanding payables chart is not available for this data structure.")
+
+
+    # =====================================================
+    # PAYMENT PRIORITY QUEUE
+    # =====================================================
 
     elif selected_tab == "Payment Priority Queue":
-        amount_col = find_amount_column(df)
+        show_section_intro(
+            "Payment Priority Queue",
+            "Prioritised view of overdue, pending and unpaid invoices for payment review."
+        )
 
-        st.markdown("### 🚦 Payment Priority Queue")
+        amount_col = find_amount_column(df)
 
         high_count = len(df[df["Priority Type"] == "Overdue"]) if "Priority Type" in df.columns else 0
         pending_count = len(df[df["Priority Type"] == "Pending"]) if "Priority Type" in df.columns else 0
         unpaid_count = len(df[df["Priority Type"] == "Unpaid"]) if "Priority Type" in df.columns else 0
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
+
         col1.metric("Overdue Items", high_count)
         col2.metric("Pending Items", pending_count)
         col3.metric("Unpaid Items", unpaid_count)
 
         if amount_col:
-            total_priority_amount = df[amount_col].sum()
-            st.metric("Total Amount in Queue", f"€{total_priority_amount:,.0f}")
+            total_priority_amount = clean_numeric(df[amount_col]).sum()
+            col4.metric("Queue Amount", format_currency(total_priority_amount))
+        else:
+            col4.metric("Queue Amount", "N/A")
 
         st.info(
             "This queue prioritises overdue payments first, followed by pending and unpaid items. "
             "Within each group, higher amounts are shown first."
         )
 
+
+    # =====================================================
+    # OTHER SECTIONS
+    # =====================================================
+
     else:
+        show_section_intro(
+            selected_tab,
+            "Detailed operational view with totals, filters and export options."
+        )
+
         numeric_cols = df.select_dtypes(include="number").columns.tolist()
 
+        if not numeric_cols:
+            possible_amount_cols = [
+                "Amount",
+                "Grand Total",
+                "Total",
+                "Net",
+                "Commission",
+                "Total Amount",
+                "Total Commissions",
+            ]
+
+            numeric_cols = [col for col in possible_amount_cols if col in df.columns]
+
         if numeric_cols:
-            st.markdown("### 📊 Totals")
-            cols = st.columns(min(3, len(numeric_cols)))
+            metric_cols = st.columns(min(4, len(numeric_cols)))
 
-            for i, col in enumerate(numeric_cols[:3]):
-                cols[i].metric(col, f"€{df[col].sum():,.0f}")
+            for i, col in enumerate(numeric_cols[:4]):
+                metric_cols[i].metric(
+                    col,
+                    format_currency(safe_sum(df, col))
+                )
 
-    st.markdown("### 📋 Data")
-    st.dataframe(df, use_container_width=True)
+        else:
+            st.caption("No numeric totals detected for this section.")
 
-    st.markdown("### 📤 Download")
 
-    st.download_button(
-        "Download CSV",
-        data=df.to_csv(index=False).encode("utf-8-sig"),
-        file_name=f"{selected_tab.replace(' ', '_')}.csv",
-        mime="text/csv"
+    # =====================================================
+    # DATA TABLE + EXPORTS
+    # =====================================================
+
+    st.markdown("### Data Table")
+
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True
     )
 
-    st.download_button(
-        "Download Excel",
-        data=download_excel(df),
-        file_name=f"{selected_tab.replace(' ', '_')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    st.markdown("---")
+
+    show_downloads(df, selected_tab)
