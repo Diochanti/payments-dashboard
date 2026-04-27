@@ -42,7 +42,6 @@ st.markdown("""
         max-width: 1450px;
     }
 
-    /* General text visibility */
     h1, h2, h3, h4, h5, h6 {
         color: #f8fafc !important;
     }
@@ -51,7 +50,6 @@ st.markdown("""
         color: inherit;
     }
 
-    /* Sidebar */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #020617 0%, #0f172a 100%);
         border-right: 1px solid rgba(148, 163, 184, 0.16);
@@ -70,7 +68,6 @@ st.markdown("""
         color: #cbd5e1 !important;
     }
 
-    /* Sidebar text input */
     [data-testid="stSidebar"] input {
         background-color: rgba(15, 23, 42, 0.98) !important;
         color: #f8fafc !important;
@@ -82,7 +79,6 @@ st.markdown("""
         color: #94a3b8 !important;
     }
 
-    /* Sidebar select boxes */
     [data-testid="stSidebar"] div[data-baseweb="select"] > div {
         background-color: rgba(15, 23, 42, 0.98) !important;
         border: 1px solid rgba(148, 163, 184, 0.35) !important;
@@ -109,7 +105,6 @@ st.markdown("""
         background-color: rgba(30, 41, 59, 0.98) !important;
     }
 
-    /* Dropdown menu */
     div[data-baseweb="popover"] {
         z-index: 9999 !important;
     }
@@ -133,7 +128,6 @@ st.markdown("""
         color: #f8fafc !important;
     }
 
-    /* Main dashboard header */
     .dashboard-header {
         background:
             linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 55%, rgba(51, 65, 85, 0.98) 100%);
@@ -171,7 +165,6 @@ st.markdown("""
         border: 1px solid rgba(187, 247, 208, 0.26);
     }
 
-    /* Section titles */
     .section-title {
         font-size: 25px;
         font-weight: 850;
@@ -188,16 +181,6 @@ st.markdown("""
         line-height: 1.6;
     }
 
-    .corporate-card {
-        background: rgba(15, 23, 42, 0.88);
-        border: 1px solid rgba(148, 163, 184, 0.20);
-        border-radius: 18px;
-        padding: 22px 24px;
-        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
-        margin-bottom: 18px;
-    }
-
-    /* Metric cards - dark premium */
     div[data-testid="stMetric"] {
         background:
             linear-gradient(180deg, rgba(30, 41, 59, 0.96) 0%, rgba(15, 23, 42, 0.96) 100%) !important;
@@ -223,28 +206,6 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    div[data-testid="stMetricDelta"] {
-        color: #cbd5e1 !important;
-    }
-
-    div[data-testid="stMetric"] label,
-    div[data-testid="stMetric"] p {
-        color: #cbd5e1 !important;
-    }
-
-    .small-note {
-        font-size: 13px;
-        color: #cbd5e1 !important;
-        line-height: 1.6;
-    }
-
-    .divider {
-        height: 1px;
-        background: rgba(148, 163, 184, 0.20);
-        margin: 20px 0;
-    }
-
-    /* Executive Action box */
     .action-box {
         background:
             linear-gradient(135deg, rgba(124, 45, 18, 0.58) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(30, 41, 59, 0.94) 100%);
@@ -273,7 +234,6 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* Smart Recommendation box */
     .recommendation-box {
         background:
             linear-gradient(135deg, rgba(30, 64, 175, 0.50) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(30, 41, 59, 0.94) 100%);
@@ -303,30 +263,6 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* Streamlit alerts - readable on dark app */
-    div[data-testid="stAlert"] {
-        border-radius: 16px;
-        border: 1px solid rgba(148, 163, 184, 0.28);
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
-    }
-
-    div[data-testid="stAlert"] * {
-        color: #f8fafc !important;
-        font-weight: 600 !important;
-    }
-
-    div[data-testid="stAlert"] p {
-        color: #f8fafc !important;
-        font-size: 15px !important;
-        line-height: 1.65 !important;
-    }
-
-    div[data-testid="stAlert"][kind="error"],
-    div[data-testid="stAlert"][data-baseweb="notification"] {
-        background-color: rgba(127, 29, 29, 0.52) !important;
-    }
-
-    /* Custom payables boxes */
     .payables-alert-box {
         background:
             linear-gradient(135deg, rgba(127, 29, 29, 0.78) 0%, rgba(69, 10, 10, 0.72) 100%);
@@ -405,7 +341,17 @@ st.markdown("""
         line-height: 1.65;
     }
 
-    /* Tabs */
+    div[data-testid="stAlert"] {
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    }
+
+    div[data-testid="stAlert"] * {
+        color: #f8fafc !important;
+        font-weight: 600 !important;
+    }
+
     button[data-baseweb="tab"] {
         color: #cbd5e1 !important;
         font-weight: 700;
@@ -415,7 +361,6 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* Dataframe area */
     div[data-testid="stDataFrame"] {
         background-color: rgba(15, 23, 42, 0.92);
         border-radius: 16px;
@@ -423,7 +368,6 @@ st.markdown("""
         overflow: hidden;
     }
 
-    /* Buttons */
     button[kind="secondary"] {
         border-radius: 13px !important;
         border: 1px solid rgba(148, 163, 184, 0.38) !important;
@@ -441,12 +385,10 @@ st.markdown("""
         width: 100%;
     }
 
-    /* Captions */
     .stCaptionContainer {
         color: #cbd5e1 !important;
     }
 
-    /* Markdown horizontal line */
     hr {
         border-color: rgba(148, 163, 184, 0.22) !important;
     }
@@ -683,6 +625,50 @@ def find_column(df, possible_names):
     )
 
 
+def month_sort_key(value):
+    month_order = {
+        "january": 1,
+        "jan": 1,
+        "february": 2,
+        "feb": 2,
+        "march": 3,
+        "mar": 3,
+        "april": 4,
+        "apr": 4,
+        "may": 5,
+        "june": 6,
+        "jun": 6,
+        "july": 7,
+        "jul": 7,
+        "august": 8,
+        "aug": 8,
+        "september": 9,
+        "sep": 9,
+        "sept": 9,
+        "october": 10,
+        "oct": 10,
+        "november": 11,
+        "nov": 11,
+        "december": 12,
+        "dec": 12,
+    }
+
+    text = str(value).strip().lower()
+
+    for month_name, month_number in month_order.items():
+        if text == month_name or text.startswith(month_name + " ") or text.startswith(month_name + "-"):
+            return month_number
+
+    try:
+        parsed = pd.to_datetime(text, errors="coerce")
+        if pd.notna(parsed):
+            return parsed.month
+    except Exception:
+        pass
+
+    return 99
+
+
 def clean_numeric(series):
     return (
         series.astype(str)
@@ -738,13 +724,23 @@ def apply_filters(df):
         existing_col = find_column(filtered, columns)
 
         if existing_col:
-            options = ["All"] + sorted(
+            raw_options = (
                 filtered[existing_col]
                 .dropna()
                 .astype(str)
                 .unique()
                 .tolist()
             )
+
+            if label == "Month":
+                sorted_options = sorted(
+                    raw_options,
+                    key=lambda x: (month_sort_key(x), str(x))
+                )
+            else:
+                sorted_options = sorted(raw_options)
+
+            options = ["All"] + sorted_options
 
             selected = st.sidebar.selectbox(label, options)
 
