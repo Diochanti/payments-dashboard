@@ -205,6 +205,18 @@ st.markdown("""
         color: #ffffff !important;
     }
 
+    div[data-testid="stMetricDelta"] {
+        font-size: 13px;
+        font-weight: 750;
+    }
+
+    .trend-note {
+        font-size: 12px;
+        color: #94a3b8 !important;
+        margin-top: -4px;
+        margin-bottom: 14px;
+    }
+
     .action-box {
         background:
             linear-gradient(135deg, rgba(124, 45, 18, 0.58) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(30, 41, 59, 0.94) 100%);
@@ -516,18 +528,6 @@ st.markdown("""
 
     table.custom-data-table tbody tr.row-paid td {
         background: rgba(22, 101, 52, 0.20) !important;
-    }
-
-    table.custom-data-table tbody tr.row-high td {
-        background: rgba(127, 29, 29, 0.30) !important;
-    }
-
-    table.custom-data-table tbody tr.row-medium td {
-        background: rgba(146, 64, 14, 0.24) !important;
-    }
-
-    table.custom-data-table tbody tr.row-review td {
-        background: rgba(113, 63, 18, 0.20) !important;
     }
 
     table.custom-data-table tbody tr:hover td {
@@ -1085,6 +1085,38 @@ def safe_sum(df, column):
 
 def format_currency(value):
     return f"€{value:,.2f}"
+
+
+def get_trend_delta(df, column):
+    if column not in df.columns:
+        return None
+
+    month_col = find_column(df, ["Month"])
+
+    if not month_col:
+        return None
+
+    trend_df = df.copy()
+    trend_df["_month_sort"] = trend_df[month_col].apply(parse_month_value)
+    trend_df = trend_df.dropna(subset=["_month_sort"])
+
+    if len(trend_df) < 2:
+        return None
+
+    trend_df = trend_df.sort_values("_month_sort", ascending=False)
+
+    current_value = clean_numeric(pd.Series([trend_df.iloc[0][column]])).sum()
+    previous_value = clean_numeric(pd.Series([trend_df.iloc[1][column]])).sum()
+
+    if previous_value == 0:
+        if current_value == 0:
+            return "0.0% vs previous month"
+        return "New activity vs previous month"
+
+    change_pct = ((current_value - previous_value) / abs(previous_value)) * 100
+
+    sign = "+" if change_pct > 0 else ""
+    return f"{sign}{change_pct:.1f}% vs previous month"
 
 
 def apply_filters(df):
@@ -1647,19 +1679,58 @@ else:
         ws_unpaid = safe_sum(df, "WS Unpaid")
         total_unpaid = omg_unpaid + ws_unpaid
 
+        st.markdown(
+            '<div class="trend-note">Trend indicators compare the latest available month against the previous month.</div>',
+            unsafe_allow_html=True
+        )
+
         col1, col2, col3 = st.columns(3)
 
-        col1.metric("Total Commissions", format_currency(total_commissions))
-        col2.metric("Total Fixes", format_currency(total_fixes))
-        col3.metric("Grand Total", format_currency(grand_total))
+        col1.metric(
+            "Total Commissions",
+            format_currency(total_commissions),
+            delta=get_trend_delta(df, "Total Commissions"),
+            delta_color="normal"
+        )
+
+        col2.metric(
+            "Total Fixes",
+            format_currency(total_fixes),
+            delta=get_trend_delta(df, "Total Fixes"),
+            delta_color="normal"
+        )
+
+        col3.metric(
+            "Grand Total",
+            format_currency(grand_total),
+            delta=get_trend_delta(df, "Grand Total"),
+            delta_color="normal"
+        )
 
         st.markdown("")
 
         col4, col5, col6 = st.columns(3)
 
-        col4.metric("OMG Outstanding", format_currency(omg_unpaid))
-        col5.metric("WS Outstanding", format_currency(ws_unpaid))
-        col6.metric("Total Outstanding", format_currency(total_unpaid))
+        col4.metric(
+            "OMG Outstanding",
+            format_currency(omg_unpaid),
+            delta=get_trend_delta(df, "OMG Unpaid"),
+            delta_color="inverse"
+        )
+
+        col5.metric(
+            "WS Outstanding",
+            format_currency(ws_unpaid),
+            delta=get_trend_delta(df, "WS Unpaid"),
+            delta_color="inverse"
+        )
+
+        col6.metric(
+            "Total Outstanding",
+            format_currency(total_unpaid),
+            delta=get_trend_delta(df, "Total Unpaid") if "Total Unpaid" in df.columns else None,
+            delta_color="inverse"
+        )
 
         st.markdown("### Payables Alert")
 
