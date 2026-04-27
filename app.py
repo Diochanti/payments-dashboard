@@ -308,6 +308,10 @@ st.markdown("""
         line-height: 1.45;
     }
 
+    .risk-note strong {
+        color: #ffffff !important;
+    }
+
     .recommendation-box {
         background:
             linear-gradient(135deg, rgba(30, 64, 175, 0.50) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(30, 41, 59, 0.94) 100%);
@@ -1151,79 +1155,79 @@ def build_priority_queue():
 
 def show_header():
     st.markdown(f"""
-    <div class="dashboard-header">
-        <div class="dashboard-title">Payments Management Dashboard</div>
-        <div class="dashboard-subtitle">
-            Corporate finance operations dashboard for invoice monitoring,
-            payment prioritisation, VAT review and monthly reporting.
-            <br>
-            Last updated: {datetime.now().strftime("%d %b %Y, %H:%M")}
-        </div>
-        <div class="status-pill">● Live Google Sheets Sync</div>
+<div class="dashboard-header">
+    <div class="dashboard-title">Payments Management Dashboard</div>
+    <div class="dashboard-subtitle">
+        Corporate finance operations dashboard for invoice monitoring,
+        payment prioritisation, VAT review and monthly reporting.
+        <br>
+        Last updated: {datetime.now().strftime("%d %b %Y, %H:%M")}
     </div>
-    """, unsafe_allow_html=True)
+    <div class="status-pill">● Live Google Sheets Sync</div>
+</div>
+""", unsafe_allow_html=True)
 
 
 def show_section_intro(title, subtitle):
     st.markdown(f"""
-    <div class="section-title">{title}</div>
-    <div class="section-subtitle">{subtitle}</div>
-    """, unsafe_allow_html=True)
+<div class="section-title">{title}</div>
+<div class="section-subtitle">{subtitle}</div>
+""", unsafe_allow_html=True)
 
 
 def show_payables_alert(level, amount):
     if level == "high":
         st.markdown(f"""
-        <div class="payables-alert-box">
-            <div class="payables-alert-title">Payables Alert</div>
-            <div class="payables-alert-text">
-                High outstanding payables detected: {format_currency(amount)}.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+<div class="payables-alert-box">
+    <div class="payables-alert-title">Payables Alert</div>
+    <div class="payables-alert-text">
+        High outstanding payables detected: {format_currency(amount)}.
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
     elif level == "medium":
         st.markdown(f"""
-        <div class="payables-alert-box">
-            <div class="payables-alert-title">Payables Alert</div>
-            <div class="payables-alert-text">
-                Medium outstanding payables detected: {format_currency(amount)}.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+<div class="payables-alert-box">
+    <div class="payables-alert-title">Payables Alert</div>
+    <div class="payables-alert-text">
+        Medium outstanding payables detected: {format_currency(amount)}.
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
     else:
         st.markdown(f"""
-        <div class="payables-success-box">
-            <div class="payables-success-title">Payables Alert</div>
-            <div class="payables-success-text">
-                Outstanding payables are currently under control: {format_currency(amount)}.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+<div class="payables-success-box">
+    <div class="payables-success-title">Payables Alert</div>
+    <div class="payables-success-text">
+        Outstanding payables are currently under control: {format_currency(amount)}.
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 
 def show_payables_summary(summary):
     st.markdown(f"""
-    <div class="payables-info-box">
-        <div class="payables-info-title">Executive Summary Note</div>
-        <div class="payables-info-text">
-            {summary}
-        </div>
+<div class="payables-info-box">
+    <div class="payables-info-title">Executive Summary Note</div>
+    <div class="payables-info-text">
+        {summary}
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
 
 def show_action_required(priority_df):
     if priority_df.empty:
         st.markdown("""
-        <div class="action-box">
-            <div class="action-title">Executive Action Required</div>
-            <div class="action-text">
-                No urgent payment items are currently detected. The payment queue appears to be clear based on the available invoice data.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+<div class="action-box">
+    <div class="action-title">Executive Action Required</div>
+    <div class="action-text">
+        No urgent payment items are currently detected. The payment queue appears to be clear based on the available invoice data.
+    </div>
+</div>
+""", unsafe_allow_html=True)
         return
 
     amount_col = find_amount_column(priority_df)
@@ -1248,20 +1252,20 @@ def show_action_required(priority_df):
         urgency = "No immediate payment risk is detected."
 
     st.markdown(f"""
-    <div class="action-box">
-        <div class="action-title">Executive Action Required</div>
-        <div class="action-text">
-            There are <strong>{total_items}</strong> invoice items requiring review.
-            Current payment exposure stands at <strong>{format_currency(total_exposure)}</strong>.
-            <br>
-            Breakdown: <strong>{overdue_count}</strong> overdue,
-            <strong>{pending_count}</strong> pending,
-            <strong>{unpaid_count}</strong> unpaid.
-            <br>
-            {urgency}
-        </div>
+<div class="action-box">
+    <div class="action-title">Executive Action Required</div>
+    <div class="action-text">
+        There are <strong>{total_items}</strong> invoice items requiring review.
+        Current payment exposure stands at <strong>{format_currency(total_exposure)}</strong>.
+        <br>
+        Breakdown: <strong>{overdue_count}</strong> overdue,
+        <strong>{pending_count}</strong> pending,
+        <strong>{unpaid_count}</strong> unpaid.
+        <br>
+        {urgency}
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
 
 def show_top_payment_risks(priority_df):
@@ -1326,50 +1330,48 @@ def show_top_payment_risks(priority_df):
         urgency_note = f"{unpaid_count} unpaid item(s) require review."
         urgency_class = "info"
 
-    st.markdown(f"""
-    <div class="risk-section">
-        <div class="risk-title">Top Payment Risks</div>
-        <div class="risk-subtitle">
-            Automated risk summary based on the current Overdue, Pending and Unpaid invoice queues.
+    risk_html = f"""
+<div class="risk-section">
+    <div class="risk-title">Top Payment Risks</div>
+    <div class="risk-subtitle">
+        Automated risk summary based on the current Overdue, Pending and Unpaid invoice queues.
+    </div>
+    <div class="risk-grid">
+        <div class="risk-card {urgency_class}">
+            <div class="risk-label">Most Urgent Area</div>
+            <div class="risk-value">{escape(str(highest_category))}</div>
+            <div class="risk-note">
+                Highest exposure category: <strong>{format_currency(highest_category_amount)}</strong>.
+                <br>{escape(urgency_note)}
+            </div>
         </div>
-
-        <div class="risk-grid">
-            <div class="risk-card {urgency_class}">
-                <div class="risk-label">Most Urgent Area</div>
-                <div class="risk-value">{escape(str(highest_category))}</div>
-                <div class="risk-note">
-                    Highest exposure category: <strong>{format_currency(highest_category_amount)}</strong>.
-                    <br>{escape(urgency_note)}
-                </div>
+        <div class="risk-card danger">
+            <div class="risk-label">Overdue Exposure</div>
+            <div class="risk-value">{format_currency(overdue_exposure)}</div>
+            <div class="risk-note">
+                Overdue invoices are treated as the highest priority items in the queue.
             </div>
-
-            <div class="risk-card danger">
-                <div class="risk-label">Overdue Exposure</div>
-                <div class="risk-value">{format_currency(overdue_exposure)}</div>
-                <div class="risk-note">
-                    Overdue invoices are treated as the highest priority items in the queue.
-                </div>
+        </div>
+        <div class="risk-card warning">
+            <div class="risk-label">Largest Invoice / Item</div>
+            <div class="risk-value">{format_currency(largest_amount)}</div>
+            <div class="risk-note">
+                {escape(affiliate_value)} · {escape(platform_value)}
+                <br>Invoice: {escape(invoice_value)}
             </div>
-
-            <div class="risk-card warning">
-                <div class="risk-label">Largest Invoice / Item</div>
-                <div class="risk-value">{format_currency(largest_amount)}</div>
-                <div class="risk-note">
-                    {escape(affiliate_value)} · {escape(platform_value)}
-                    <br>Invoice: {escape(invoice_value)}
-                </div>
-            </div>
-
-            <div class="risk-card info">
-                <div class="risk-label">Total Payment Exposure</div>
-                <div class="risk-value">{format_currency(total_exposure)}</div>
-                <div class="risk-note">
-                    Includes {len(risk_df)} item(s): {overdue_count} overdue, {pending_count} pending, {unpaid_count} unpaid.
-                </div>
+        </div>
+        <div class="risk-card info">
+            <div class="risk-label">Total Payment Exposure</div>
+            <div class="risk-value">{format_currency(total_exposure)}</div>
+            <div class="risk-note">
+                Includes {len(risk_df)} item(s): {overdue_count} overdue, {pending_count} pending, {unpaid_count} unpaid.
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+</div>
+"""
+
+    st.markdown(risk_html, unsafe_allow_html=True)
 
 
 def show_action_required_details(priority_df):
@@ -1452,20 +1454,20 @@ def show_smart_payment_recommendation(priority_df):
         amount_value = format_currency(clean_numeric(pd.Series([top_item[amount_col]])).sum())
 
     st.markdown(f"""
-    <div class="recommendation-box">
-        <div class="recommendation-title">Smart Payment Recommendation</div>
-        <div class="recommendation-text">
-            Recommended next review:
-            <strong>{affiliate_value}</strong>
-            on <strong>{platform_value}</strong>,
-            invoice <strong>{invoice_value}</strong>,
-            amount <strong>{amount_value}</strong>.
-            <br>
-            Priority level: <strong>{priority_type}</strong>.
-            This item appears first because the queue prioritises overdue invoices first and then sorts by the highest available amount.
-        </div>
+<div class="recommendation-box">
+    <div class="recommendation-title">Smart Payment Recommendation</div>
+    <div class="recommendation-text">
+        Recommended next review:
+        <strong>{affiliate_value}</strong>
+        on <strong>{platform_value}</strong>,
+        invoice <strong>{invoice_value}</strong>,
+        amount <strong>{amount_value}</strong>.
+        <br>
+        Priority level: <strong>{priority_type}</strong>.
+        This item appears first because the queue prioritises overdue invoices first and then sorts by the highest available amount.
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
 
 def show_downloads(df, selected_tab):
