@@ -27,7 +27,6 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Main dark background */
     .stApp {
         background:
             radial-gradient(circle at top left, rgba(30, 64, 175, 0.18), transparent 28%),
@@ -496,17 +495,6 @@ def download_pdf(df, selected_tab):
         spaceAfter=10,
     )
 
-    section_style = ParagraphStyle(
-        "SectionTitle",
-        parent=styles["Heading2"],
-        textColor=HexColor("#1e3a8a"),
-        fontName="Helvetica-Bold",
-        fontSize=11,
-        leading=14,
-        spaceBefore=8,
-        spaceAfter=6,
-    )
-
     cell_style = ParagraphStyle(
         "CellText",
         parent=styles["Normal"],
@@ -526,10 +514,9 @@ def download_pdf(df, selected_tab):
     )
 
     story = []
-    report_title = f"{selected_tab} - Export Report"
     generated_at = datetime.now().strftime("%d %b %Y, %H:%M")
 
-    story.append(Paragraph(escape(report_title), title_style))
+    story.append(Paragraph(escape(f"{selected_tab} - Export Report"), title_style))
     story.append(Paragraph(f"Generated from Payments Management Dashboard on {generated_at}", meta_style))
     story.append(Paragraph(f"Rows: {len(df)} | Columns: {len(df.columns)}", meta_style))
     story.append(Spacer(1, 8))
@@ -539,8 +526,7 @@ def download_pdf(df, selected_tab):
         doc.build(story)
         return output.getvalue()
 
-    pdf_df = df.copy().fillna("")
-    pdf_df = pdf_df.astype(str)
+    pdf_df = df.copy().fillna("").astype(str)
 
     max_columns_per_table = 6
     all_columns = list(pdf_df.columns)
@@ -554,12 +540,6 @@ def download_pdf(df, selected_tab):
     for group_index, columns_group in enumerate(column_groups, start=1):
         if group_index > 1:
             story.append(PageBreak())
-
-        if len(column_groups) > 1:
-            story.append(Paragraph(
-                f"Table section {group_index} of {len(column_groups)}",
-                section_style
-            ))
 
         table_data = []
         table_data.append([
@@ -625,48 +605,68 @@ def find_column(df, possible_names):
     )
 
 
+def parse_month_value(value):
+    text = str(value).strip()
+
+    if not text:
+        return pd.NaT
+
+    formats = [
+        "%b-%y",      # Jul-25
+        "%B-%y",      # July-25
+        "%b %y",      # Jul 25
+        "%B %y",      # July 25
+        "%b-%Y",      # Jul-2025
+        "%B-%Y",      # July-2025
+        "%b %Y",      # Jul 2025
+        "%B %Y",      # July 2025
+        "%Y-%m",      # 2025-07
+        "%m-%Y",      # 07-2025
+        "%m/%Y",      # 07/2025
+    ]
+
+    for fmt in formats:
+        try:
+            parsed = datetime.strptime(text, fmt)
+            return pd.Timestamp(parsed.year, parsed.month, 1)
+        except ValueError:
+            pass
+
+    parsed = pd.to_datetime(text, errors="coerce")
+    if pd.notna(parsed):
+        return pd.Timestamp(parsed.year, parsed.month, 1)
+
+    return pd.NaT
+
+
 def month_sort_key(value):
-    month_order = {
-        "january": 1,
-        "jan": 1,
-        "february": 2,
-        "feb": 2,
-        "march": 3,
-        "mar": 3,
-        "april": 4,
-        "apr": 4,
-        "may": 5,
-        "june": 6,
-        "jun": 6,
-        "july": 7,
-        "jul": 7,
-        "august": 8,
-        "aug": 8,
-        "september": 9,
-        "sep": 9,
-        "sept": 9,
-        "october": 10,
-        "oct": 10,
-        "november": 11,
-        "nov": 11,
-        "december": 12,
-        "dec": 12,
-    }
+    parsed = parse_month_value(value)
 
-    text = str(value).strip().lower()
+    if pd.notna(parsed):
+        return (parsed.year, parsed.month, str(value))
 
-    for month_name, month_number in month_order.items():
-        if text == month_name or text.startswith(month_name + " ") or text.startswith(month_name + "-"):
-            return month_number
+    return (9999, 99, str(value))
 
-    try:
-        parsed = pd.to_datetime(text, errors="coerce")
-        if pd.notna(parsed):
-            return parsed.month
-    except Exception:
-        pass
 
-    return 99
+def sort_dataframe_by_month(df):
+    month_col = find_column(df, ["Month"])
+
+    if not month_col or df.empty:
+        return df
+
+    sorted_df = df.copy()
+    sorted_df["_month_sort"] = sorted_df[month_col].apply(parse_month_value)
+    sorted_df["_month_sort_fallback"] = sorted_df[month_col].astype(str)
+
+    sorted_df = sorted_df.sort_values(
+        by=["_month_sort", "_month_sort_fallback"],
+        ascending=[True, True],
+        na_position="last"
+    )
+
+    sorted_df = sorted_df.drop(columns=["_month_sort", "_month_sort_fallback"])
+
+    return sorted_df
 
 
 def clean_numeric(series):
@@ -735,7 +735,7 @@ def apply_filters(df):
             if label == "Month":
                 sorted_options = sorted(
                     raw_options,
-                    key=lambda x: (month_sort_key(x), str(x))
+                    key=lambda x: month_sort_key(x)
                 )
             else:
                 sorted_options = sorted(raw_options)
@@ -746,6 +746,8 @@ def apply_filters(df):
 
             if selected != "All":
                 filtered = filtered[filtered[existing_col].astype(str) == selected]
+
+    filtered = sort_dataframe_by_month(filtered)
 
     st.sidebar.markdown("---")
     st.sidebar.caption("Data source: Google Sheets")
@@ -1142,7 +1144,7 @@ else:
 
         with chart_tab1:
             if "Month" in df.columns and "Grand Total" in df.columns:
-                chart_df = df.copy()
+                chart_df = sort_dataframe_by_month(df.copy())
                 chart_df["Grand Total"] = clean_numeric(chart_df["Grand Total"])
                 st.bar_chart(chart_df[["Month", "Grand Total"]].set_index("Month"))
             else:
@@ -1154,7 +1156,7 @@ else:
                 and "OMG Unpaid" in df.columns
                 and "WS Unpaid" in df.columns
             ):
-                chart_df = df.copy()
+                chart_df = sort_dataframe_by_month(df.copy())
                 chart_df["OMG Unpaid"] = clean_numeric(chart_df["OMG Unpaid"])
                 chart_df["WS Unpaid"] = clean_numeric(chart_df["WS Unpaid"])
                 st.bar_chart(
