@@ -360,13 +360,6 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    div[data-testid="stDataFrame"] {
-        background-color: rgba(15, 23, 42, 0.92);
-        border-radius: 16px;
-        border: 1px solid rgba(148, 163, 184, 0.20);
-        overflow: hidden;
-    }
-
     button[kind="secondary"] {
         border-radius: 13px !important;
         border: 1px solid rgba(148, 163, 184, 0.38) !important;
@@ -390,6 +383,65 @@ st.markdown("""
 
     hr {
         border-color: rgba(148, 163, 184, 0.22) !important;
+    }
+
+    .custom-table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 18px;
+        background: rgba(15, 23, 42, 0.72);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+    }
+
+    table.custom-data-table {
+        width: 100%;
+        border-collapse: collapse;
+        white-space: nowrap;
+        font-size: 14px;
+    }
+
+    table.custom-data-table thead th {
+        background: rgba(31, 41, 55, 0.96);
+        color: #cbd5e1;
+        font-weight: 700;
+        padding: 13px 11px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+        border-right: 1px solid rgba(148, 163, 184, 0.18);
+        text-align: left;
+    }
+
+    table.custom-data-table tbody td {
+        color: #f8fafc;
+        padding: 12px 11px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        border-right: 1px solid rgba(148, 163, 184, 0.14);
+        background: rgba(3, 7, 18, 0.46);
+    }
+
+    table.custom-data-table tbody tr:nth-child(even) td {
+        background: rgba(15, 23, 42, 0.58);
+    }
+
+    table.custom-data-table tbody tr:hover td {
+        background: rgba(30, 41, 59, 0.92);
+    }
+
+    table.custom-data-table td.text-cell {
+        text-align: left;
+    }
+
+    table.custom-data-table td.number-cell {
+        text-align: right !important;
+        font-variant-numeric: tabular-nums;
+    }
+
+    table.custom-data-table th.number-header {
+        text-align: right !important;
+    }
+
+    table.custom-data-table th.text-header {
+        text-align: left !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -634,30 +686,27 @@ def show_formatted_dataframe(df):
     display_df = prepare_display_dataframe(df)
     numeric_cols = get_numeric_like_columns(df)
 
-    styled_df = display_df.style.set_properties(
-        subset=numeric_cols,
-        **{
-            "text-align": "right"
-        }
-    ).set_properties(
-        subset=[col for col in display_df.columns if col not in numeric_cols],
-        **{
-            "text-align": "left"
-        }
-    ).set_table_styles([
-        {
-            "selector": "th",
-            "props": [
-                ("text-align", "left")
-            ]
-        }
-    ])
+    html = '<div class="custom-table-wrapper"><table class="custom-data-table"><thead><tr>'
 
-    st.dataframe(
-        styled_df,
-        use_container_width=True,
-        hide_index=True
-    )
+    for col in display_df.columns:
+        header_class = "number-header" if col in numeric_cols else "text-header"
+        html += f'<th class="{header_class}">{escape(str(col))}</th>'
+
+    html += '</tr></thead><tbody>'
+
+    for _, row in display_df.iterrows():
+        html += '<tr>'
+
+        for col in display_df.columns:
+            cell_class = "number-cell" if col in numeric_cols else "text-cell"
+            value = "" if pd.isna(row[col]) else str(row[col])
+            html += f'<td class="{cell_class}">{escape(value)}</td>'
+
+        html += '</tr>'
+
+    html += '</tbody></table></div>'
+
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def download_excel(df):
@@ -855,6 +904,7 @@ def download_pdf(df, selected_tab):
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [HexColor("#ffffff"), HexColor("#f8fafc")]),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
         ("LEFTPADDING", (0, 0), (-1, -1), 2.2),
         ("RIGHTPADDING", (0, 0), (-1, -1), 2.2),
         ("TOPPADDING", (0, 0), (-1, -1), 2.5),
