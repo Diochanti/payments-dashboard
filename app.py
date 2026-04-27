@@ -134,6 +134,53 @@ st.markdown("""
         margin: 20px 0;
     }
 
+    .action-box {
+        background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
+        border: 1px solid #fed7aa;
+        border-left: 6px solid #f97316;
+        border-radius: 18px;
+        padding: 22px 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+    }
+
+    .action-title {
+        font-size: 19px;
+        font-weight: 800;
+        color: #9a3412;
+        margin-bottom: 8px;
+    }
+
+    .action-text {
+        font-size: 14px;
+        color: #431407;
+        line-height: 1.65;
+    }
+
+    .recommendation-box {
+        background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+        border: 1px solid #bfdbfe;
+        border-left: 6px solid #2563eb;
+        border-radius: 18px;
+        padding: 22px 24px;
+        margin-top: 18px;
+        margin-bottom: 22px;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+    }
+
+    .recommendation-title {
+        font-size: 19px;
+        font-weight: 800;
+        color: #1e3a8a;
+        margin-bottom: 8px;
+    }
+
+    .recommendation-text {
+        font-size: 14px;
+        color: #172554;
+        line-height: 1.65;
+    }
+
     button[kind="secondary"] {
         border-radius: 12px !important;
         border: 1px solid #cbd5e1 !important;
@@ -381,6 +428,106 @@ def show_section_intro(title, subtitle):
     """, unsafe_allow_html=True)
 
 
+def show_action_required(priority_df):
+    if priority_df.empty:
+        st.markdown("""
+        <div class="action-box">
+            <div class="action-title">Executive Action Required</div>
+            <div class="action-text">
+                No urgent payment items are currently detected. The payment queue appears to be clear based on the available invoice data.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+
+    amount_col = find_amount_column(priority_df)
+
+    overdue_count = len(priority_df[priority_df["Priority Type"] == "Overdue"]) if "Priority Type" in priority_df.columns else 0
+    pending_count = len(priority_df[priority_df["Priority Type"] == "Pending"]) if "Priority Type" in priority_df.columns else 0
+    unpaid_count = len(priority_df[priority_df["Priority Type"] == "Unpaid"]) if "Priority Type" in priority_df.columns else 0
+
+    total_items = overdue_count + pending_count + unpaid_count
+
+    total_exposure = 0
+    if amount_col:
+        total_exposure = clean_numeric(priority_df[amount_col]).sum()
+
+    if overdue_count > 0:
+        urgency = "High attention is required due to overdue invoices."
+    elif pending_count > 0:
+        urgency = "Medium attention is required due to pending invoices."
+    elif unpaid_count > 0:
+        urgency = "Review is recommended for unpaid invoices."
+    else:
+        urgency = "No immediate payment risk is detected."
+
+    st.markdown(f"""
+    <div class="action-box">
+        <div class="action-title">Executive Action Required</div>
+        <div class="action-text">
+            There are <strong>{total_items}</strong> invoice items requiring review.
+            Current payment exposure stands at <strong>{format_currency(total_exposure)}</strong>.
+            <br>
+            Breakdown: <strong>{overdue_count}</strong> overdue,
+            <strong>{pending_count}</strong> pending,
+            <strong>{unpaid_count}</strong> unpaid.
+            <br>
+            {urgency}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def show_smart_payment_recommendation(priority_df):
+    if priority_df.empty:
+        return
+
+    amount_col = find_amount_column(priority_df)
+
+    top_item = priority_df.iloc[0]
+
+    invoice_col = find_column(
+        priority_df,
+        ["Invoice #", "Invoice", "Invoice Number", "Number", "Invoice No", "Invoice No."]
+    )
+
+    affiliate_col = find_column(
+        priority_df,
+        ["Affiliate", "Partner", "Display Name", "Partner/Display Name"]
+    )
+
+    platform_col = find_column(
+        priority_df,
+        ["Platform", "Brand"]
+    )
+
+    priority_type = top_item["Priority Type"] if "Priority Type" in priority_df.columns else "Review"
+
+    invoice_value = top_item[invoice_col] if invoice_col else "N/A"
+    affiliate_value = top_item[affiliate_col] if affiliate_col else "N/A"
+    platform_value = top_item[platform_col] if platform_col else "N/A"
+
+    amount_value = "N/A"
+    if amount_col:
+        amount_value = format_currency(clean_numeric(pd.Series([top_item[amount_col]])).sum())
+
+    st.markdown(f"""
+    <div class="recommendation-box">
+        <div class="recommendation-title">Smart Payment Recommendation</div>
+        <div class="recommendation-text">
+            Recommended next review:
+            <strong>{affiliate_value}</strong>
+            on <strong>{platform_value}</strong>,
+            invoice <strong>{invoice_value}</strong>,
+            amount <strong>{amount_value}</strong>.
+            <br>
+            Priority level: <strong>{priority_type}</strong>.
+            This item appears first because the queue prioritises overdue invoices first and then sorts by the highest available amount.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 def show_downloads(df, selected_tab):
     st.markdown("### Export Centre")
 
@@ -442,6 +589,17 @@ except Exception as error:
 # =====================================================
 
 show_header()
+
+
+# =====================================================
+# EXECUTIVE ACTION REQUIRED
+# =====================================================
+
+try:
+    priority_snapshot = build_priority_queue()
+    show_action_required(priority_snapshot)
+except Exception:
+    st.warning("Action Required summary could not be loaded.")
 
 
 # =====================================================
@@ -577,6 +735,8 @@ else:
             "This queue prioritises overdue payments first, followed by pending and unpaid items. "
             "Within each group, higher amounts are shown first."
         )
+
+        show_smart_payment_recommendation(df)
 
 
     # =====================================================
