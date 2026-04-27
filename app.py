@@ -658,26 +658,82 @@ def download_excel(df):
     return output.getvalue()
 
 
+def get_pdf_font_size(column_count):
+    if column_count <= 8:
+        return 7.0
+    elif column_count <= 10:
+        return 6.3
+    elif column_count <= 12:
+        return 5.7
+    elif column_count <= 15:
+        return 5.0
+    elif column_count <= 18:
+        return 4.5
+    else:
+        return 4.0
+
+
+def get_pdf_column_widths(columns, available_width):
+    weights = []
+
+    for col in columns:
+        col_lower = str(col).strip().lower()
+
+        if col_lower == "month":
+            weight = 0.9
+        elif "invoice" in col_lower:
+            weight = 1.25
+        elif "affiliate" in col_lower or "partner" in col_lower or "display" in col_lower:
+            weight = 1.55
+        elif "platform" in col_lower or "brand" in col_lower:
+            weight = 1.25
+        elif "status" in col_lower or "priority" in col_lower or "source" in col_lower:
+            weight = 1.05
+        elif "grand total with vat" in col_lower:
+            weight = 1.45
+        elif "commission" in col_lower:
+            weight = 1.35
+        elif "total" in col_lower:
+            weight = 1.25
+        elif "unpaid" in col_lower:
+            weight = 1.2
+        elif "vat" in col_lower:
+            weight = 1.05
+        else:
+            weight = 1.0
+
+        weights.append(weight)
+
+    total_weight = sum(weights)
+
+    return [
+        available_width * weight / total_weight
+        for weight in weights
+    ]
+
+
 def download_pdf(df, selected_tab):
     try:
         from reportlab.lib import colors
         from reportlab.lib.colors import HexColor
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A3, landscape
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import cm
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     except ImportError:
         return None
 
     output = BytesIO()
 
+    page_size = landscape(A3)
+
     doc = SimpleDocTemplate(
         output,
-        pagesize=landscape(A4),
-        rightMargin=1.0 * cm,
-        leftMargin=1.0 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm,
+        pagesize=page_size,
+        rightMargin=0.45 * cm,
+        leftMargin=0.45 * cm,
+        topMargin=0.55 * cm,
+        bottomMargin=0.55 * cm,
     )
 
     styles = getSampleStyleSheet()
@@ -687,9 +743,9 @@ def download_pdf(df, selected_tab):
         parent=styles["Title"],
         textColor=HexColor("#0f172a"),
         fontName="Helvetica-Bold",
-        fontSize=18,
-        leading=22,
-        spaceAfter=8,
+        fontSize=15,
+        leading=18,
+        spaceAfter=4,
     )
 
     meta_style = ParagraphStyle(
@@ -697,18 +753,37 @@ def download_pdf(df, selected_tab):
         parent=styles["Normal"],
         textColor=HexColor("#475569"),
         fontName="Helvetica",
-        fontSize=9,
-        leading=12,
-        spaceAfter=10,
+        fontSize=7,
+        leading=9,
+        spaceAfter=4,
     )
+
+    if df.empty:
+        story = []
+        generated_at = datetime.now().strftime("%d %b %Y, %H:%M")
+        story.append(Paragraph(escape(f"{selected_tab} - Export Report"), title_style))
+        story.append(Paragraph(f"Generated from Payments Management Dashboard on {generated_at}", meta_style))
+        story.append(Spacer(1, 8))
+        story.append(Paragraph("No data available for the selected filters.", meta_style))
+        doc.build(story)
+        return output.getvalue()
+
+    pdf_df = prepare_display_dataframe(df).copy().fillna("").astype(str)
+
+    all_columns = list(pdf_df.columns)
+    column_count = len(all_columns)
+
+    body_font_size = get_pdf_font_size(column_count)
+    header_font_size = body_font_size + 0.3
 
     cell_style = ParagraphStyle(
         "CellText",
         parent=styles["Normal"],
         textColor=HexColor("#111827"),
         fontName="Helvetica",
-        fontSize=6.4,
-        leading=8,
+        fontSize=body_font_size,
+        leading=body_font_size + 1.2,
+        wordWrap="CJK",
     )
 
     header_style = ParagraphStyle(
@@ -716,8 +791,9 @@ def download_pdf(df, selected_tab):
         parent=styles["Normal"],
         textColor=colors.white,
         fontName="Helvetica-Bold",
-        fontSize=6.7,
-        leading=8,
+        fontSize=header_font_size,
+        leading=header_font_size + 1.2,
+        wordWrap="CJK",
     )
 
     story = []
@@ -725,65 +801,50 @@ def download_pdf(df, selected_tab):
 
     story.append(Paragraph(escape(f"{selected_tab} - Export Report"), title_style))
     story.append(Paragraph(f"Generated from Payments Management Dashboard on {generated_at}", meta_style))
-    story.append(Paragraph(f"Rows: {len(df)} | Columns: {len(df.columns)}", meta_style))
-    story.append(Spacer(1, 8))
+    story.append(Paragraph(f"Rows: {len(pdf_df)} | Columns: {len(pdf_df.columns)}", meta_style))
+    story.append(Spacer(1, 6))
 
-    if df.empty:
-        story.append(Paragraph("No data available for the selected filters.", meta_style))
-        doc.build(story)
-        return output.getvalue()
+    table_data = []
 
-    pdf_df = prepare_display_dataframe(df).copy().fillna("").astype(str)
+    table_data.append([
+        Paragraph(escape(str(col)), header_style)
+        for col in all_columns
+    ])
 
-    max_columns_per_table = 6
-    all_columns = list(pdf_df.columns)
-    column_groups = [
-        all_columns[i:i + max_columns_per_table]
-        for i in range(0, len(all_columns), max_columns_per_table)
-    ]
-
-    available_width = landscape(A4)[0] - doc.leftMargin - doc.rightMargin
-
-    for group_index, columns_group in enumerate(column_groups, start=1):
-        if group_index > 1:
-            story.append(PageBreak())
-
-        table_data = []
+    for _, row in pdf_df.iterrows():
         table_data.append([
-            Paragraph(escape(str(col)), header_style)
-            for col in columns_group
+            Paragraph(escape(str(row[col])), cell_style)
+            for col in all_columns
         ])
 
-        for _, row in pdf_df[columns_group].iterrows():
-            table_data.append([
-                Paragraph(escape(str(row[col])), cell_style)
-                for col in columns_group
-            ])
+    available_width = page_size[0] - doc.leftMargin - doc.rightMargin
+    col_widths = get_pdf_column_widths(all_columns, available_width)
 
-        col_width = available_width / max(1, len(columns_group))
-        table = Table(
-            table_data,
-            colWidths=[col_width] * len(columns_group),
-            repeatRows=1,
-            hAlign="LEFT"
-        )
+    table = Table(
+        table_data,
+        colWidths=col_widths,
+        repeatRows=1,
+        hAlign="LEFT"
+    )
 
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), HexColor("#0f172a")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.25, HexColor("#cbd5e1")),
-            ("BACKGROUND", (0, 1), (-1, -1), HexColor("#ffffff")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [HexColor("#ffffff"), HexColor("#f8fafc")]),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ]))
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), HexColor("#0f172a")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.18, HexColor("#cbd5e1")),
+        ("BACKGROUND", (0, 1), (-1, -1), HexColor("#ffffff")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [HexColor("#ffffff"), HexColor("#f8fafc")]),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2.2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2.2),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+    ]))
 
-        story.append(table)
+    story.append(table)
 
     doc.build(story)
+
     return output.getvalue()
 
 
