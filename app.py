@@ -1,6 +1,7 @@
 import json
 from io import BytesIO
 from datetime import datetime
+from html import escape
 
 import gspread
 import pandas as pd
@@ -320,7 +321,6 @@ st.markdown("""
         line-height: 1.65 !important;
     }
 
-    /* Make alert backgrounds stronger */
     div[data-testid="stAlert"][kind="error"],
     div[data-testid="stAlert"][data-baseweb="notification"] {
         background-color: rgba(127, 29, 29, 0.52) !important;
@@ -507,6 +507,154 @@ def download_excel(df):
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Report")
 
+    return output.getvalue()
+
+
+def download_pdf(df, selected_tab):
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.colors import HexColor
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    except ImportError:
+        return None
+
+    output = BytesIO()
+
+    doc = SimpleDocTemplate(
+        output,
+        pagesize=landscape(A4),
+        rightMargin=1.0 * cm,
+        leftMargin=1.0 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm,
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        "DashboardTitle",
+        parent=styles["Title"],
+        textColor=HexColor("#0f172a"),
+        fontName="Helvetica-Bold",
+        fontSize=18,
+        leading=22,
+        spaceAfter=8,
+    )
+
+    meta_style = ParagraphStyle(
+        "MetaText",
+        parent=styles["Normal"],
+        textColor=HexColor("#475569"),
+        fontName="Helvetica",
+        fontSize=9,
+        leading=12,
+        spaceAfter=10,
+    )
+
+    section_style = ParagraphStyle(
+        "SectionTitle",
+        parent=styles["Heading2"],
+        textColor=HexColor("#1e3a8a"),
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        leading=14,
+        spaceBefore=8,
+        spaceAfter=6,
+    )
+
+    cell_style = ParagraphStyle(
+        "CellText",
+        parent=styles["Normal"],
+        textColor=HexColor("#111827"),
+        fontName="Helvetica",
+        fontSize=6.4,
+        leading=8,
+    )
+
+    header_style = ParagraphStyle(
+        "HeaderText",
+        parent=styles["Normal"],
+        textColor=colors.white,
+        fontName="Helvetica-Bold",
+        fontSize=6.7,
+        leading=8,
+    )
+
+    story = []
+    report_title = f"{selected_tab} - Export Report"
+    generated_at = datetime.now().strftime("%d %b %Y, %H:%M")
+
+    story.append(Paragraph(escape(report_title), title_style))
+    story.append(Paragraph(f"Generated from Payments Management Dashboard on {generated_at}", meta_style))
+    story.append(Paragraph(f"Rows: {len(df)} | Columns: {len(df.columns)}", meta_style))
+    story.append(Spacer(1, 8))
+
+    if df.empty:
+        story.append(Paragraph("No data available for the selected filters.", meta_style))
+        doc.build(story)
+        return output.getvalue()
+
+    pdf_df = df.copy().fillna("")
+    pdf_df = pdf_df.astype(str)
+
+    max_columns_per_table = 6
+    all_columns = list(pdf_df.columns)
+    column_groups = [
+        all_columns[i:i + max_columns_per_table]
+        for i in range(0, len(all_columns), max_columns_per_table)
+    ]
+
+    available_width = landscape(A4)[0] - doc.leftMargin - doc.rightMargin
+
+    for group_index, columns_group in enumerate(column_groups, start=1):
+        if group_index > 1:
+            story.append(PageBreak())
+
+        if len(column_groups) > 1:
+            story.append(Paragraph(
+                f"Table section {group_index} of {len(column_groups)}",
+                section_style
+            ))
+
+        table_data = []
+        table_data.append([
+            Paragraph(escape(str(col)), header_style)
+            for col in columns_group
+        ])
+
+        for _, row in pdf_df[columns_group].iterrows():
+            table_data.append([
+                Paragraph(escape(str(row[col])), cell_style)
+                for col in columns_group
+            ])
+
+        col_width = available_width / max(1, len(columns_group))
+        table = Table(
+            table_data,
+            colWidths=[col_width] * len(columns_group),
+            repeatRows=1,
+            hAlign="LEFT"
+        )
+
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), HexColor("#0f172a")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.25, HexColor("#cbd5e1")),
+            ("BACKGROUND", (0, 1), (-1, -1), HexColor("#ffffff")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [HexColor("#ffffff"), HexColor("#f8fafc")]),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+
+        story.append(table)
+
+    doc.build(story)
     return output.getvalue()
 
 
@@ -834,7 +982,7 @@ def show_smart_payment_recommendation(priority_df):
 def show_downloads(df, selected_tab):
     st.markdown("### Export Centre")
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         st.download_button(
@@ -853,6 +1001,20 @@ def show_downloads(df, selected_tab):
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
+
+    with col3:
+        pdf_data = download_pdf(df, selected_tab)
+
+        if pdf_data is None:
+            st.warning("PDF export requires `reportlab` in requirements.txt")
+        else:
+            st.download_button(
+                "Download PDF",
+                data=pdf_data,
+                file_name=f"{selected_tab.replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
 
 
 # =====================================================
