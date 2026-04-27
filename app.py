@@ -646,7 +646,7 @@ def month_sort_key(value):
     if pd.notna(parsed):
         return (parsed.year, parsed.month, str(value))
 
-    return (9999, 99, str(value))
+    return (0, 0, str(value))
 
 
 def sort_dataframe_by_month(df):
@@ -661,7 +661,7 @@ def sort_dataframe_by_month(df):
 
     sorted_df = sorted_df.sort_values(
         by=["_month_sort", "_month_sort_fallback"],
-        ascending=[True, True],
+        ascending=[False, False],
         na_position="last"
     )
 
@@ -813,7 +813,8 @@ def apply_filters(df):
             if label == "Month":
                 sorted_options = sorted(
                     raw_options,
-                    key=lambda x: month_sort_key(x)
+                    key=lambda x: month_sort_key(x),
+                    reverse=True
                 )
             else:
                 sorted_options = sorted(raw_options)
