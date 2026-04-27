@@ -606,59 +606,44 @@ def get_numeric_like_columns(df):
     return numeric_cols
 
 
+def prepare_numeric_dataframe(df):
+    numeric_df = df.copy()
+    numeric_cols = get_numeric_like_columns(numeric_df)
+
+    for col in numeric_cols:
+        numeric_df[col] = clean_numeric(numeric_df[col])
+
+    return numeric_df
+
+
 def prepare_display_dataframe(df):
-    display_df = df.copy()
+    display_df = prepare_numeric_dataframe(df)
     numeric_cols = get_numeric_like_columns(display_df)
 
     for col in numeric_cols:
-        display_df[col] = clean_numeric(display_df[col])
+        display_df[col] = display_df[col].apply(lambda x: f"{float(x):,.2f}")
 
     return display_df
 
 
 def prepare_export_dataframe(df):
-    export_df = prepare_display_dataframe(df)
-    numeric_cols = get_numeric_like_columns(export_df)
-
-    for col in numeric_cols:
-        export_df[col] = export_df[col].apply(lambda x: f"{float(x):,.2f}")
-
-    return export_df
+    return prepare_display_dataframe(df)
 
 
-def get_number_column_config(df):
-    display_df = prepare_display_dataframe(df)
-    numeric_cols = get_numeric_like_columns(display_df)
-
-    return {
-        col: st.column_config.NumberColumn(
-            label=col,
-            format="%.2f"
-        )
-        for col in numeric_cols
-    }
-
-
-def show_formatted_dataframe(df, height=None):
+def show_formatted_dataframe(df):
     display_df = prepare_display_dataframe(df)
 
-    dataframe_kwargs = {
-        "data": display_df,
-        "use_container_width": True,
-        "hide_index": True,
-        "column_config": get_number_column_config(display_df),
-    }
-
-    if height is not None:
-        dataframe_kwargs["height"] = height
-
-    st.dataframe(**dataframe_kwargs)
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True
+    )
 
 
 def download_excel(df):
     output = BytesIO()
 
-    export_df = prepare_display_dataframe(df)
+    export_df = prepare_numeric_dataframe(df)
     numeric_cols = get_numeric_like_columns(export_df)
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -748,7 +733,7 @@ def download_pdf(df, selected_tab):
         doc.build(story)
         return output.getvalue()
 
-    pdf_df = prepare_export_dataframe(df).copy().fillna("").astype(str)
+    pdf_df = prepare_display_dataframe(df).copy().fillna("").astype(str)
 
     max_columns_per_table = 6
     all_columns = list(pdf_df.columns)
@@ -1381,20 +1366,7 @@ else:
             "Detailed operational view with totals, filters and export options."
         )
 
-        numeric_cols = df.select_dtypes(include="number").columns.tolist()
-
-        if not numeric_cols:
-            possible_amount_cols = [
-                "Amount",
-                "Grand Total",
-                "Total",
-                "Net",
-                "Commission",
-                "Total Amount",
-                "Total Commissions",
-            ]
-
-            numeric_cols = [col for col in possible_amount_cols if col in df.columns]
+        numeric_cols = get_numeric_like_columns(df)
 
         if numeric_cols:
             metric_cols = st.columns(min(4, len(numeric_cols)))
