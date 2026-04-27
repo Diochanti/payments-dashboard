@@ -212,7 +212,7 @@ st.markdown("""
         border-left: 6px solid #fb923c;
         border-radius: 20px;
         padding: 22px 24px;
-        margin-bottom: 24px;
+        margin-bottom: 18px;
         box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
     }
 
@@ -1005,6 +1005,64 @@ def show_action_required(priority_df):
     """, unsafe_allow_html=True)
 
 
+def show_action_required_details(priority_df):
+    if priority_df.empty or "Priority Type" not in priority_df.columns:
+        return
+
+    amount_col = find_amount_column(priority_df)
+
+    with st.expander("View invoices behind Executive Action Required", expanded=False):
+        st.caption(
+            "These records are pulled from the Overdue Invoices, Pending Invoices and Unpaid Invoices sheets."
+        )
+
+        overdue_df = priority_df[priority_df["Priority Type"] == "Overdue"].copy()
+        pending_df = priority_df[priority_df["Priority Type"] == "Pending"].copy()
+        unpaid_df = priority_df[priority_df["Priority Type"] == "Unpaid"].copy()
+
+        tab_overdue, tab_pending, tab_unpaid = st.tabs([
+            f"Overdue ({len(overdue_df)})",
+            f"Pending ({len(pending_df)})",
+            f"Unpaid ({len(unpaid_df)})",
+        ])
+
+        with tab_overdue:
+            if overdue_df.empty:
+                st.success("No overdue invoices found.")
+            else:
+                if amount_col:
+                    st.metric("Overdue Exposure", format_currency(clean_numeric(overdue_df[amount_col]).sum()))
+                st.dataframe(
+                    format_dataframe_for_display(overdue_df),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+        with tab_pending:
+            if pending_df.empty:
+                st.success("No pending invoices found.")
+            else:
+                if amount_col:
+                    st.metric("Pending Exposure", format_currency(clean_numeric(pending_df[amount_col]).sum()))
+                st.dataframe(
+                    format_dataframe_for_display(pending_df),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+        with tab_unpaid:
+            if unpaid_df.empty:
+                st.success("No unpaid invoices found.")
+            else:
+                if amount_col:
+                    st.metric("Unpaid Exposure", format_currency(clean_numeric(unpaid_df[amount_col]).sum()))
+                st.dataframe(
+                    format_dataframe_for_display(unpaid_df),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+
 def show_smart_payment_recommendation(priority_df):
     if priority_df.empty:
         return
@@ -1139,6 +1197,7 @@ show_header()
 try:
     priority_snapshot = build_priority_queue()
     show_action_required(priority_snapshot)
+    show_action_required_details(priority_snapshot)
 except Exception:
     st.warning("Action Required summary could not be loaded.")
 
