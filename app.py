@@ -26,12 +26,19 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    /* Main app background */
+    .stApp {
+        background-color: #f8fafc;
+        color: #0f172a;
+    }
+
     .block-container {
         padding-top: 1.5rem;
         padding-bottom: 2rem;
         max-width: 1450px;
     }
 
+    /* Sidebar */
     [data-testid="stSidebar"] {
         background-color: #0f172a;
     }
@@ -45,6 +52,13 @@ st.markdown("""
         font-weight: 500;
     }
 
+    [data-testid="stSidebar"] input,
+    [data-testid="stSidebar"] textarea,
+    [data-testid="stSidebar"] select {
+        color: #0f172a !important;
+    }
+
+    /* Header */
     .dashboard-header {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%);
         padding: 30px 34px;
@@ -59,11 +73,12 @@ st.markdown("""
         font-weight: 800;
         margin-bottom: 6px;
         letter-spacing: -0.03em;
+        color: #ffffff !important;
     }
 
     .dashboard-subtitle {
         font-size: 15px;
-        color: #cbd5e1;
+        color: #cbd5e1 !important;
         line-height: 1.6;
     }
 
@@ -72,25 +87,35 @@ st.markdown("""
         padding: 6px 12px;
         border-radius: 999px;
         background-color: rgba(34, 197, 94, 0.14);
-        color: #bbf7d0;
+        color: #bbf7d0 !important;
         font-size: 12px;
         font-weight: 700;
         margin-top: 14px;
         border: 1px solid rgba(187, 247, 208, 0.25);
     }
 
+    /* Section titles */
     .section-title {
-        font-size: 22px;
-        font-weight: 750;
-        color: #111827;
+        font-size: 24px;
+        font-weight: 800;
+        color: #020617 !important;
         margin-top: 6px;
         margin-bottom: 8px;
     }
 
     .section-subtitle {
         font-size: 14px;
-        color: #64748b;
+        color: #475569 !important;
         margin-bottom: 18px;
+    }
+
+    /* Streamlit headings */
+    h1, h2, h3, h4, h5, h6 {
+        color: #020617 !important;
+    }
+
+    p, span, label {
+        color: inherit;
     }
 
     .corporate-card {
@@ -102,29 +127,43 @@ st.markdown("""
         margin-bottom: 18px;
     }
 
+    /* Metric cards */
     div[data-testid="stMetric"] {
-        background-color: #ffffff;
+        background-color: #ffffff !important;
         border: 1px solid #e5e7eb;
         padding: 18px 20px;
         border-radius: 16px;
         box-shadow: 0 6px 18px rgba(15, 23, 42, 0.055);
     }
 
+    div[data-testid="stMetric"] * {
+        color: #020617 !important;
+    }
+
     div[data-testid="stMetricLabel"] {
         font-size: 13px;
-        font-weight: 650;
-        color: #64748b;
+        font-weight: 700;
+        color: #334155 !important;
     }
 
     div[data-testid="stMetricValue"] {
         font-size: 27px;
         font-weight: 800;
-        color: #0f172a;
+        color: #020617 !important;
+    }
+
+    div[data-testid="stMetricDelta"] {
+        color: #334155 !important;
+    }
+
+    div[data-testid="stMetric"] label,
+    div[data-testid="stMetric"] p {
+        color: #334155 !important;
     }
 
     .small-note {
         font-size: 13px;
-        color: #64748b;
+        color: #64748b !important;
         line-height: 1.6;
     }
 
@@ -134,6 +173,7 @@ st.markdown("""
         margin: 20px 0;
     }
 
+    /* Action box */
     .action-box {
         background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
         border: 1px solid #fed7aa;
@@ -147,16 +187,21 @@ st.markdown("""
     .action-title {
         font-size: 19px;
         font-weight: 800;
-        color: #9a3412;
+        color: #9a3412 !important;
         margin-bottom: 8px;
     }
 
     .action-text {
         font-size: 14px;
-        color: #431407;
+        color: #431407 !important;
         line-height: 1.65;
     }
 
+    .action-text strong {
+        color: #431407 !important;
+    }
+
+    /* Recommendation box */
     .recommendation-box {
         background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
         border: 1px solid #bfdbfe;
@@ -171,16 +216,32 @@ st.markdown("""
     .recommendation-title {
         font-size: 19px;
         font-weight: 800;
-        color: #1e3a8a;
+        color: #1e3a8a !important;
         margin-bottom: 8px;
     }
 
     .recommendation-text {
         font-size: 14px;
-        color: #172554;
+        color: #172554 !important;
         line-height: 1.65;
     }
 
+    .recommendation-text strong {
+        color: #172554 !important;
+    }
+
+    /* Alerts */
+    div[data-testid="stAlert"] * {
+        color: #0f172a !important;
+    }
+
+    /* Tables */
+    div[data-testid="stDataFrame"] {
+        background-color: #ffffff;
+        border-radius: 14px;
+    }
+
+    /* Buttons */
     button[kind="secondary"] {
         border-radius: 12px !important;
         border: 1px solid #cbd5e1 !important;
