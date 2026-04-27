@@ -939,6 +939,89 @@ def get_pdf_column_widths(columns, available_width):
     ]
 
 
+def get_pdf_summary_rows(df, selected_tab):
+    rows = []
+
+    rows.append(["Selected Section", selected_tab])
+    rows.append(["Total Rows", f"{len(df):,}"])
+    rows.append(["Total Columns", f"{len(df.columns):,}"])
+
+    if df.empty:
+        rows.append(["Status", "No data available for the selected filters"])
+        return rows
+
+    if selected_tab == "Monthly Overview":
+        rows.append(["Total Commissions", format_currency(safe_sum(df, "Total Commissions"))])
+        rows.append(["Total Fixes", format_currency(safe_sum(df, "Total Fixes"))])
+        rows.append(["Grand Total", format_currency(safe_sum(df, "Grand Total"))])
+
+        omg_unpaid = safe_sum(df, "OMG Unpaid")
+        ws_unpaid = safe_sum(df, "WS Unpaid")
+        total_unpaid = omg_unpaid + ws_unpaid
+
+        rows.append(["OMG Outstanding", format_currency(omg_unpaid)])
+        rows.append(["WS Outstanding", format_currency(ws_unpaid)])
+        rows.append(["Total Outstanding", format_currency(total_unpaid)])
+
+        if total_unpaid > 10000:
+            rows.append(["Payables Status", "High outstanding payables detected"])
+        elif total_unpaid > 5000:
+            rows.append(["Payables Status", "Medium outstanding payables detected"])
+        else:
+            rows.append(["Payables Status", "Outstanding payables under control"])
+
+    elif "Priority Type" in df.columns:
+        amount_col = find_amount_column(df)
+
+        overdue_count = len(df[df["Priority Type"] == "Overdue"])
+        pending_count = len(df[df["Priority Type"] == "Pending"])
+        unpaid_count = len(df[df["Priority Type"] == "Unpaid"])
+
+        rows.append(["Overdue Items", f"{overdue_count:,}"])
+        rows.append(["Pending Items", f"{pending_count:,}"])
+        rows.append(["Unpaid Items", f"{unpaid_count:,}"])
+
+        if amount_col:
+            total_exposure = clean_numeric(df[amount_col]).sum()
+            rows.append(["Total Payment Exposure", format_currency(total_exposure)])
+
+            largest_item = df.copy()
+            largest_item[amount_col] = clean_numeric(largest_item[amount_col])
+            top_row = largest_item.sort_values(by=amount_col, ascending=False).iloc[0]
+
+            invoice_col = find_column(
+                largest_item,
+                ["Invoice #", "Invoice", "Invoice Number", "Number", "Invoice No", "Invoice No."]
+            )
+
+            affiliate_col = find_column(
+                largest_item,
+                ["Affiliate", "Partner", "Display Name", "Partner/Display Name"]
+            )
+
+            platform_col = find_column(
+                largest_item,
+                ["Platform", "Brand"]
+            )
+
+            rows.append(["Largest Item Amount", format_currency(top_row[amount_col])])
+            rows.append(["Largest Item", f"{safe_cell_value(top_row, affiliate_col)} / {safe_cell_value(top_row, platform_col)} / Invoice: {safe_cell_value(top_row, invoice_col)}"])
+
+    else:
+        amount_col = find_amount_column(df)
+
+        if amount_col:
+            rows.append([f"Total {amount_col}", format_currency(safe_sum(df, amount_col))])
+
+        numeric_cols = get_numeric_like_columns(df)
+
+        for col in numeric_cols[:4]:
+            if col != amount_col:
+                rows.append([f"Total {col}", format_currency(safe_sum(df, col))])
+
+    return rows
+
+
 def download_pdf(df, selected_tab):
     try:
         from reportlab.lib import colors
@@ -946,7 +1029,7 @@ def download_pdf(df, selected_tab):
         from reportlab.lib.pagesizes import A3, landscape
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import cm
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
     except ImportError:
         return None
 
@@ -970,9 +1053,29 @@ def download_pdf(df, selected_tab):
         parent=styles["Title"],
         textColor=HexColor("#0f172a"),
         fontName="Helvetica-Bold",
-        fontSize=15,
-        leading=18,
-        spaceAfter=4,
+        fontSize=20,
+        leading=24,
+        spaceAfter=8,
+    )
+
+    subtitle_style = ParagraphStyle(
+        "DashboardSubtitle",
+        parent=styles["Normal"],
+        textColor=HexColor("#334155"),
+        fontName="Helvetica",
+        fontSize=10,
+        leading=14,
+        spaceAfter=14,
+    )
+
+    section_style = ParagraphStyle(
+        "SectionTitle",
+        parent=styles["Heading2"],
+        textColor=HexColor("#0f172a"),
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        leading=16,
+        spaceAfter=8,
     )
 
     meta_style = ParagraphStyle(
@@ -980,20 +1083,104 @@ def download_pdf(df, selected_tab):
         parent=styles["Normal"],
         textColor=HexColor("#475569"),
         fontName="Helvetica",
-        fontSize=7,
-        leading=9,
+        fontSize=8,
+        leading=10,
         spaceAfter=4,
     )
 
+    cover_cell_style = ParagraphStyle(
+        "CoverCell",
+        parent=styles["Normal"],
+        textColor=HexColor("#111827"),
+        fontName="Helvetica",
+        fontSize=9,
+        leading=12,
+    )
+
+    cover_label_style = ParagraphStyle(
+        "CoverLabel",
+        parent=styles["Normal"],
+        textColor=HexColor("#0f172a"),
+        fontName="Helvetica-Bold",
+        fontSize=9,
+        leading=12,
+    )
+
+    story = []
+    generated_at = datetime.now().strftime("%d %b %Y, %H:%M")
+
+    # =========================
+    # PDF COVER PAGE
+    # =========================
+
+    story.append(Paragraph("Payments Management Dashboard", title_style))
+    story.append(Paragraph("Executive Export Report", section_style))
+    story.append(Paragraph(
+        "This report summarises the selected dashboard section and includes a detailed export table on the following page.",
+        subtitle_style
+    ))
+
+    story.append(Paragraph(f"Generated: {generated_at}", meta_style))
+    story.append(Paragraph("Data source: Google Sheets live dashboard", meta_style))
+    story.append(Spacer(1, 14))
+
+    summary_rows = get_pdf_summary_rows(df, selected_tab)
+
+    summary_table_data = [
+        [
+            Paragraph("Metric", cover_label_style),
+            Paragraph("Value", cover_label_style),
+        ]
+    ]
+
+    for label, value in summary_rows:
+        summary_table_data.append([
+            Paragraph(escape(str(label)), cover_label_style),
+            Paragraph(escape(str(value)), cover_cell_style),
+        ])
+
+    summary_table = Table(
+        summary_table_data,
+        colWidths=[5.0 * cm, 18.5 * cm],
+        hAlign="LEFT"
+    )
+
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), HexColor("#0f172a")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.35, HexColor("#cbd5e1")),
+        ("BACKGROUND", (0, 1), (-1, -1), HexColor("#ffffff")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [HexColor("#ffffff"), HexColor("#f8fafc")]),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+
+    story.append(summary_table)
+    story.append(Spacer(1, 18))
+
+    story.append(Paragraph("Notes", section_style))
+    story.append(Paragraph(
+        "Amounts are displayed using standard finance formatting with thousands separators and two decimal places. "
+        "Priority queues are ordered by urgency first and then by amount where applicable.",
+        subtitle_style
+    ))
+
     if df.empty:
-        story = []
-        generated_at = datetime.now().strftime("%d %b %Y, %H:%M")
-        story.append(Paragraph(escape(f"{selected_tab} - Export Report"), title_style))
-        story.append(Paragraph(f"Generated from Payments Management Dashboard on {generated_at}", meta_style))
-        story.append(Spacer(1, 8))
-        story.append(Paragraph("No data available for the selected filters.", meta_style))
         doc.build(story)
         return output.getvalue()
+
+    story.append(PageBreak())
+
+    # =========================
+    # DETAILED TABLE PAGE
+    # =========================
+
+    story.append(Paragraph(f"{selected_tab} - Detailed Data Table", section_style))
+    story.append(Paragraph(f"Rows: {len(df)} | Columns: {len(df.columns)}", meta_style))
+    story.append(Spacer(1, 6))
 
     pdf_df = prepare_display_dataframe(df).copy().fillna("").astype(str)
 
@@ -1022,14 +1209,6 @@ def download_pdf(df, selected_tab):
         leading=header_font_size + 1.2,
         wordWrap="CJK",
     )
-
-    story = []
-    generated_at = datetime.now().strftime("%d %b %Y, %H:%M")
-
-    story.append(Paragraph(escape(f"{selected_tab} - Export Report"), title_style))
-    story.append(Paragraph(f"Generated from Payments Management Dashboard on {generated_at}", meta_style))
-    story.append(Paragraph(f"Rows: {len(pdf_df)} | Columns: {len(pdf_df.columns)}", meta_style))
-    story.append(Spacer(1, 6))
 
     table_data = []
 
