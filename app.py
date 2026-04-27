@@ -1,16 +1,28 @@
-import streamlit as st
-import pandas as pd
-import gspread
+import json
 from io import BytesIO
+
+import gspread
+import pandas as pd
+import streamlit as st
+from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="Payments Dashboard", layout="wide")
 
 st.title("💼 Payments Management Dashboard")
 
-client = gspread.oauth(
-    credentials_filename="credentials.json",
-    authorized_user_filename="token.json"
-)
+# Google Sheets connection for Streamlit Cloud
+scope = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
+creds_data = st.secrets["gcp"]["credentials"]
+
+if isinstance(creds_data, str):
+    creds_data = json.loads(creds_data)
+
+creds = Credentials.from_service_account_info(creds_data, scopes=scope)
+client = gspread.authorize(creds)
 
 spreadsheet = client.open_by_key("1XCugk_3eGhdouHRDfSgWz6b9BDABc8eB3knAOJCGr8E")
 
